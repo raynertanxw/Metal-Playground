@@ -33,7 +33,9 @@ class Renderer: NSObject, MTKViewDelegate {
         Vertex(position: [ 0.5,  0.5]),
     ]
 
-    let instanceCount = 10
+    let instanceCount = 100
+    var time: Float = 0
+    var instanceData: [InstanceData] = []
 
     init(mtkView: MTKView) {
         self.device = mtkView.device!
@@ -61,41 +63,51 @@ class Renderer: NSObject, MTKViewDelegate {
 
         pipelineState = try! device.makeRenderPipelineState(descriptor: pipelineDescriptor)
     }
-
+    
     func buildBuffers() {
         vertexBuffer = device.makeBuffer(bytes: squareVertices,
                                          length: squareVertices.count * MemoryLayout<Vertex>.stride,
                                          options: [])
 
-        var instances = [InstanceData]()
+        // Preallocate instance data array (will update it per-frame)
+        instanceData = Array(repeating: InstanceData(transform: matrix_identity_float4x4, color: .zero),
+                             count: instanceCount)
 
-        for i in 0..<instanceCount {
-            let angle = Float(i) * 0.2
-            //let scale = 0.2 + 0.05 * Float(i)
-            let scale = Float(1.0) - 0.5 + (Float(i) * 0.1)
-            let x = -0.9 + Float(i) * 0.2
-            let y: Float = 0.0
-
-            let translation = float4x4(translation: [x, y, 0])
-            let rotation = float4x4(rotationZ: angle)
-            let scaleMat = float4x4(scaling: [scale, scale, 1.0])
-
-            let transform = translation * rotation * scaleMat
-
-            let color = SIMD4<Float>(Float(i)/10.0, 1.0 - Float(i)/10.0, 0.5, 1.0)
-
-            instances.append(InstanceData(transform: transform, color: color))
-        }
-
-        instanceBuffer = device.makeBuffer(bytes: instances,
-                                           length: instances.count * MemoryLayout<InstanceData>.stride,
+        instanceBuffer = device.makeBuffer(length: instanceCount * MemoryLayout<InstanceData>.stride,
                                            options: [])
     }
+
 
     func draw(in view: MTKView) {
         guard let drawable = view.currentDrawable,
               let descriptor = view.currentRenderPassDescriptor else { return }
 
+        time += 1.0 / Float(view.preferredFramesPerSecond)
+
+        for i in 0..<instanceCount {
+            let angle = time + Float(i) * (2 * .pi / Float(instanceCount))
+            let radius: Float = 0.5
+
+            let x = cos(angle) * radius
+            let y = sin(angle) * radius
+            let rotation = float4x4(rotationZ: angle * 2)
+            let scale = float4x4(scaling: SIMD3<Float>(repeating: 0.5))
+            let translation = float4x4(translation: [x, y, 0])
+
+            let transform = translation * rotation * scale
+            let color = SIMD4<Float>(
+                0.5 + 0.5 * sin(angle),
+                0.5 + 0.5 * cos(angle),
+                0.5 + 0.5 * sin(angle * 0.5),
+                1.0
+            )
+
+            instanceData[i] = InstanceData(transform: transform, color: color)
+        }
+
+        // Write to the GPU buffer
+        memcpy(instanceBuffer.contents(), instanceData, instanceCount * MemoryLayout<InstanceData>.stride)
+        
         let commandBuffer = commandQueue.makeCommandBuffer()!
         let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
 
