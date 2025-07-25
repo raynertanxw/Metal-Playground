@@ -33,7 +33,8 @@ class Renderer: NSObject, MTKViewDelegate {
         Vertex(position: [ 0.5,  0.5]),
     ]
 
-    let instanceCount = 100
+    let maxInstanceCount = 1000
+    var instanceCount = 0
     var time: Float = 0
     var instanceData: [InstanceData] = []
 
@@ -71,9 +72,9 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // Preallocate instance data array (will update it per-frame)
         instanceData = Array(repeating: InstanceData(transform: matrix_identity_float4x4, color: .zero),
-                             count: instanceCount)
+                             count: maxInstanceCount)
 
-        instanceBuffer = device.makeBuffer(length: instanceCount * MemoryLayout<InstanceData>.stride,
+        instanceBuffer = device.makeBuffer(length: maxInstanceCount * MemoryLayout<InstanceData>.stride,
                                            options: [])
     }
 
@@ -84,6 +85,35 @@ class Renderer: NSObject, MTKViewDelegate {
 
         time += 1.0 / Float(view.preferredFramesPerSecond)
 
+//        for i in 0..<instanceCount {
+//            let angle = time + Float(i) * (2 * .pi / Float(instanceCount))
+//            let radius: Float = 0.5
+//
+//            let x = cos(angle) * radius
+//            let y = sin(angle) * radius
+//            let rotation = float4x4(rotationZ: angle * 2)
+//            let scale = float4x4(scaling: SIMD3<Float>(repeating: 0.5))
+//            let translation = float4x4(translation: [x, y, 0])
+//
+//            let transform = translation * rotation * scale
+//            let color = SIMD4<Float>(
+//                0.5 + 0.5 * sin(angle),
+//                0.5 + 0.5 * cos(angle),
+//                0.5 + 0.5 * sin(angle * 0.5),
+//                1.0
+//            )
+//
+//            instanceData[i] = InstanceData(transform: transform, color: color)
+//        }
+//
+//        // Write to the GPU buffer
+//        memcpy(instanceBuffer.contents(), instanceData, instanceCount * MemoryLayout<InstanceData>.stride)
+        
+
+        // For test: oscillate count between 1 and 100
+        instanceCount = Int(10 + 90 * (0.5 + 0.5 * sin(time * 0.5)))
+        instanceCount = min(instanceCount, maxInstanceCount)
+
         for i in 0..<instanceCount {
             let angle = time + Float(i) * (2 * .pi / Float(instanceCount))
             let radius: Float = 0.5
@@ -91,7 +121,7 @@ class Renderer: NSObject, MTKViewDelegate {
             let x = cos(angle) * radius
             let y = sin(angle) * radius
             let rotation = float4x4(rotationZ: angle * 2)
-            let scale = float4x4(scaling: SIMD3<Float>(repeating: 0.5))
+            let scale = float4x4(scaling: SIMD3<Float>(repeating: 0.05 + 0.05 * sin(angle)))
             let translation = float4x4(translation: [x, y, 0])
 
             let transform = translation * rotation * scale
@@ -105,8 +135,8 @@ class Renderer: NSObject, MTKViewDelegate {
             instanceData[i] = InstanceData(transform: transform, color: color)
         }
 
-        // Write to the GPU buffer
         memcpy(instanceBuffer.contents(), instanceData, instanceCount * MemoryLayout<InstanceData>.stride)
+
         
         let commandBuffer = commandQueue.makeCommandBuffer()!
         let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
