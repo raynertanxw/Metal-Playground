@@ -71,7 +71,8 @@ class Renderer: NSObject, MTKViewDelegate {
 
         for i in 0..<instanceCount {
             let angle = Float(i) * 0.2
-            let scale = 0.2 + 0.05 * Float(i)
+            //let scale = 0.2 + 0.05 * Float(i)
+            let scale = Float(1.0) - 0.5 + (Float(i) * 0.1)
             let x = -0.9 + Float(i) * 0.2
             let y: Float = 0.0
 
