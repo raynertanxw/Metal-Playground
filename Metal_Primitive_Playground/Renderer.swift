@@ -250,7 +250,7 @@ class Renderer: NSObject, MTKViewDelegate {
     func draw(in view: MTKView) {
         // TODO: Does this actually happen? Maybe it does, so maybe it's not to throw error here.
         guard let drawable = view.currentDrawable,
-              let descriptor = view.currentRenderPassDescriptor else { return }
+              let renderPassDescriptor = view.currentRenderPassDescriptor else { return }
 
         time += 1.0 / Float(view.preferredFramesPerSecond)
 
@@ -259,14 +259,15 @@ class Renderer: NSObject, MTKViewDelegate {
 
         
         let commandBuffer = commandQueue.makeCommandBuffer()!
-        let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
-
-        encoder.setRenderPipelineState(atlasPipelineState)
-        encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
-        encoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
+        
+        // MARK: - ATLAS ENCODER
+        let atlasEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
+        atlasEncoder.setRenderPipelineState(atlasPipelineState)
+        atlasEncoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
+        atlasEncoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
         
         // Load Main Texture at tex buffer 0.
-        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
+        atlasEncoder.setFragmentTexture(mainAtlasTexture, index: 0)
         
         // Load TexSampler at sampler buffer 0.
         let samplerDescriptor = MTLSamplerDescriptor()
@@ -274,16 +275,19 @@ class Renderer: NSObject, MTKViewDelegate {
         samplerDescriptor.magFilter = .linear
         samplerDescriptor.mipFilter = .linear
         let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
-        encoder.setFragmentSamplerState(samplerState, index: 0)
+        atlasEncoder.setFragmentSamplerState(samplerState, index: 0)
 
         if atlasInstanceCount > 0 {
-            encoder.drawPrimitives(type: .triangleStrip,
+            atlasEncoder.drawPrimitives(type: .triangleStrip,
                                    vertexStart: 0,
                                    vertexCount: atlasAquareVertices.count,
                                    instanceCount: atlasInstanceCount)
         }
 
-        encoder.endEncoding()
+        atlasEncoder.endEncoding()
+        
+        // TODO: PRIMITIVE ENCODER HERE
+        
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }
