@@ -9,12 +9,12 @@
 
 import MetalKit
 
-struct Vertex {
+struct AtlasVertex {
     var position: SIMD2<Float>
     var uv: SIMD2<Float>
 }
 
-struct InstanceData {
+struct AtlasInstanceData {
     var transform: simd_float4x4
     var color: SIMD4<Float>
     var uvMin: SIMD2<Float>
@@ -32,19 +32,20 @@ class Renderer: NSObject, MTKViewDelegate {
     
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
-    var pipelineState: MTLRenderPipelineState!
+    var atlasPipelineState: MTLRenderPipelineState!
+    var primitivePipelineState: MTLRenderPipelineState!
 
-    var vertexBuffer: MTLBuffer!
-    var instanceBuffer: MTLBuffer!
-    var instanceData: [InstanceData] = []
-    let maxInstanceCount = 1000
-    var instanceCount = 0
+    var atlasVertexBuffer: MTLBuffer!
+    var atlasInstanceBuffer: MTLBuffer!
+    var atlasInstanceData: [AtlasInstanceData] = []
+    let atlasMaxInstanceCount = 1000
+    var atlasInstanceCount = 0
 
-    let squareVertices: [Vertex] = [
-        Vertex(position: [-0.5, -0.5], uv: [0, 1]),
-        Vertex(position: [ 0.5, -0.5], uv: [1, 1]),
-        Vertex(position: [-0.5,  0.5], uv: [0, 0]),
-        Vertex(position: [ 0.5,  0.5], uv: [1, 0]),
+    let atlasAquareVertices: [AtlasVertex] = [
+        AtlasVertex(position: [-0.5, -0.5], uv: [0, 1]),
+        AtlasVertex(position: [ 0.5, -0.5], uv: [1, 1]),
+        AtlasVertex(position: [-0.5,  0.5], uv: [0, 0]),
+        AtlasVertex(position: [ 0.5,  0.5], uv: [1, 0]),
     ]
     
     var mainAtlasTexture: MTLTexture!
@@ -65,7 +66,8 @@ class Renderer: NSObject, MTKViewDelegate {
         self.commandQueue = cmdQueue
 
         super.init()
-        buildPipeline(mtkView: mtkView)
+        buildAtlasPipeline(mtkView: mtkView)
+        //buildPrimitivePipeline(mtkView: mtkView)
         buildBuffers()
         
         let texture = loadTexture(device: device, name: "main_atlas")
@@ -75,14 +77,14 @@ class Renderer: NSObject, MTKViewDelegate {
         self.mainAtlasUVRects = atlasUVs
     }
 
-    func buildPipeline(mtkView: MTKView) {
+    func buildAtlasPipeline(mtkView: MTKView) {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
         
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_main")
-        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
+        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_atlas")
+        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_atlas")
         
         // Enable alpha blending
         let colorAttachment = pipelineDescriptor.colorAttachments[0]!
@@ -106,9 +108,9 @@ class Renderer: NSObject, MTKViewDelegate {
         // UV
         vertexDescriptor.attributes[1].format = .float2
         vertexDescriptor.attributes[1].bufferIndex = 0
-        vertexDescriptor.attributes[1].offset = MemoryLayout<Vertex>.offset(of: \.uv)!
+        vertexDescriptor.attributes[1].offset = MemoryLayout<AtlasVertex>.offset(of: \.uv)!
         
-        vertexDescriptor.layouts[0].stride = MemoryLayout<Vertex>.stride
+        vertexDescriptor.layouts[0].stride = MemoryLayout<AtlasVertex>.stride
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
         
 
@@ -116,25 +118,42 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
             fatalError("Unable to create render pipeline state")
         }
-        self.pipelineState = pipelineState
+        self.atlasPipelineState = pipelineState
+    }
+    
+    func buildPrimitivePipeline(mtkView: MTKView) {
+        guard let library = device.makeDefaultLibrary() else {
+            fatalError("Unable to get default library")
+        }
+        
+        let primitivePipelineDescriptor = MTLRenderPipelineDescriptor()
+//        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_main")
+//        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
+
+        // TODO: Implement this!!!
+        
+        guard let primitivePipelineState = try? device.makeRenderPipelineState(descriptor: primitivePipelineDescriptor) else {
+            fatalError("Unable to create render pipeline state")
+        }
+        self.primitivePipelineState = primitivePipelineState
     }
     
     func buildBuffers() {
-        vertexBuffer = device.makeBuffer(bytes: squareVertices,
-                                         length: squareVertices.count * MemoryLayout<Vertex>.stride,
+        atlasVertexBuffer = device.makeBuffer(bytes: atlasAquareVertices,
+                                         length: atlasAquareVertices.count * MemoryLayout<AtlasVertex>.stride,
                                          options: [])
 
         // Preallocate instance data array (will update it per-frame)
-        instanceData = Array(repeating:
-                                InstanceData(
+        atlasInstanceData = Array(repeating:
+                                AtlasInstanceData(
                                     transform: matrix_identity_float4x4,
                                     color: .zero,
                                     uvMin: SIMD2<Float>.zero,
                                     uvMax: SIMD2<Float>.zero
                                 ),
-                             count: maxInstanceCount)
+                             count: atlasMaxInstanceCount)
 
-        instanceBuffer = device.makeBuffer(length: maxInstanceCount * MemoryLayout<InstanceData>.stride,
+        atlasInstanceBuffer = device.makeBuffer(length: atlasMaxInstanceCount * MemoryLayout<AtlasInstanceData>.stride,
                                            options: [])
     }
     
@@ -174,7 +193,6 @@ class Renderer: NSObject, MTKViewDelegate {
             let maxUV = SIMD2<Float>((x + w) / textureWidth, (y + h) / textureHeight)
 
             atlasUV[name] = AtlasUVRect(minUV: minUV, maxUV: maxUV)
-            print("\(name): \(atlasUV[name]!.minUV) \(atlasUV[name]!.maxUV), \(x), \(y), \(w), \(h)")
         }
 
         return atlasUV
@@ -184,11 +202,11 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func updateInstanceData() {
         // For test: oscillate count between 0 and 100
-        instanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * 100)
-        instanceCount = min(instanceCount, maxInstanceCount)
+        atlasInstanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * 100)
+        atlasInstanceCount = min(atlasInstanceCount, atlasMaxInstanceCount)
 
-        for i in 0..<instanceCount {
-            let angle = time + Float(i) * (2 * .pi / Float(instanceCount))
+        for i in 0..<atlasInstanceCount {
+            let angle = time + Float(i) * (2 * .pi / Float(atlasInstanceCount))
             let radius: Float = Float(screenSize.width) / 3.0
 
             let x = cos(angle) * radius
@@ -207,7 +225,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
             let spriteName = "Circle_White"
             let uvRect = mainAtlasUVRects[spriteName]!
-            instanceData[i] = InstanceData(
+            atlasInstanceData[i] = AtlasInstanceData(
                 transform: projectionMatrix * transform,
                 color: color,
                 uvMin: uvRect.minUV,
@@ -218,8 +236,8 @@ class Renderer: NSObject, MTKViewDelegate {
         { // Test anything static here, replaces the last instance count
             let spriteName = "player_1"
             let uvRect = mainAtlasUVRects[spriteName]!
-            let index = max(0, instanceCount - 1)
-            instanceData[index] = InstanceData(
+            let index = max(0, atlasInstanceCount - 1)
+            atlasInstanceData[index] = AtlasInstanceData(
                 transform: projectionMatrix * float4x4(translation: [100, 100, 0]) * float4x4(scaling: [256, 256, 1]),
                 color: SIMD4<Float>(1, 1, 1, 1),
                 uvMin: uvRect.minUV,
@@ -237,15 +255,15 @@ class Renderer: NSObject, MTKViewDelegate {
         time += 1.0 / Float(view.preferredFramesPerSecond)
 
         updateInstanceData()
-        memcpy(instanceBuffer.contents(), instanceData, instanceCount * MemoryLayout<InstanceData>.stride)
+        memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
 
         
         let commandBuffer = commandQueue.makeCommandBuffer()!
         let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
 
-        encoder.setRenderPipelineState(pipelineState)
-        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-        encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
+        encoder.setRenderPipelineState(atlasPipelineState)
+        encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
         
         // Load Main Texture at tex buffer 0.
         encoder.setFragmentTexture(mainAtlasTexture, index: 0)
@@ -258,11 +276,11 @@ class Renderer: NSObject, MTKViewDelegate {
         let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
         encoder.setFragmentSamplerState(samplerState, index: 0)
 
-        if instanceCount > 0 {
+        if atlasInstanceCount > 0 {
             encoder.drawPrimitives(type: .triangleStrip,
                                    vertexStart: 0,
-                                   vertexCount: squareVertices.count,
-                                   instanceCount: instanceCount)
+                                   vertexCount: atlasAquareVertices.count,
+                                   instanceCount: atlasInstanceCount)
         }
 
         encoder.endEncoding()
