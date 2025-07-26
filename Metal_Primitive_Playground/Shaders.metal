@@ -12,6 +12,7 @@ using namespace metal;
 
 struct Vertex {
     float2 position;
+    float2 uv;
 };
 
 struct InstanceData {
@@ -21,6 +22,7 @@ struct InstanceData {
 
 struct VOut {
     float4 position [[position]];
+    float2 uv;
     float4 color;
 };
 
@@ -30,13 +32,20 @@ vertex VOut vertex_main(uint vertexId [[vertex_id]],
                          const device InstanceData* instances [[buffer(1)]])
 {
     VOut out;
-    float4 pos = float4(vertices[vertexId].position, 0.0, 1.0);
+    const Vertex v = vertices[vertexId];
+    
+    float4 pos = float4(v.position, 0.0, 1.0);
     out.position = instances[instanceId].transform * pos;
+    out.uv = v.uv;
     out.color = instances[instanceId].color;
+    
     return out;
 }
 
-fragment float4 fragment_main(VOut in [[stage_in]]) {
-    return in.color;
+fragment float4 fragment_main(VOut in [[stage_in]],
+                              texture2d<float> tex [[texture(0)]],
+                              sampler samp [[sampler(0)]]) {
+    float4 texColor = tex.sample(samp, in.uv);
+    return texColor * in.color;
 }
 

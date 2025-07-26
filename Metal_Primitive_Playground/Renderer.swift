@@ -11,12 +11,12 @@ import MetalKit
 
 struct Vertex {
     var position: SIMD2<Float>
+    var uv: SIMD2<Float>
 }
 
 struct InstanceData {
     var transform: simd_float4x4
     var color: SIMD4<Float>
-    // TODO: Texture & UVs?
 }
 
 class Renderer: NSObject, MTKViewDelegate {
@@ -34,11 +34,13 @@ class Renderer: NSObject, MTKViewDelegate {
     var instanceCount = 0
 
     let squareVertices: [Vertex] = [
-        Vertex(position: [-0.5, -0.5]),
-        Vertex(position: [ 0.5, -0.5]),
-        Vertex(position: [-0.5,  0.5]),
-        Vertex(position: [ 0.5,  0.5]),
+        Vertex(position: [-0.5, -0.5], uv: [0, 0]),
+        Vertex(position: [ 0.5, -0.5], uv: [1, 0]),
+        Vertex(position: [-0.5,  0.5], uv: [0, 1]),
+        Vertex(position: [ 0.5,  0.5], uv: [1, 1]),
     ]
+    
+    var texture: MTLTexture!
 
     var time: Float = 0
 
@@ -57,6 +59,9 @@ class Renderer: NSObject, MTKViewDelegate {
         super.init()
         buildPipeline(mtkView: mtkView)
         buildBuffers()
+        
+        let texture = loadTexture(device: device, name: "main_atlas")
+        self.texture = texture
     }
 
     func buildPipeline(mtkView: MTKView) {
@@ -70,11 +75,18 @@ class Renderer: NSObject, MTKViewDelegate {
         pipelineDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat
 
         let vertexDescriptor = MTLVertexDescriptor()
+        
+        // Position
         vertexDescriptor.attributes[0].format = .float2
-        vertexDescriptor.attributes[0].offset = 0
         vertexDescriptor.attributes[0].bufferIndex = 0
+        vertexDescriptor.attributes[0].offset = 0
+        
+        // UV
+        vertexDescriptor.attributes[1].format = .float2
+        vertexDescriptor.attributes[1].bufferIndex = 0
+        vertexDescriptor.attributes[1].offset = MemoryLayout<Vertex>.offset(of: \.uv)!
+        
         vertexDescriptor.layouts[0].stride = MemoryLayout<Vertex>.stride
-
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
 
         
@@ -96,6 +108,19 @@ class Renderer: NSObject, MTKViewDelegate {
         instanceBuffer = device.makeBuffer(length: maxInstanceCount * MemoryLayout<InstanceData>.stride,
                                            options: [])
     }
+    
+    func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
+        let textureLoader = MTKTextureLoader(device: device)
+        let url = Bundle.main.url(forResource: name, withExtension: "png")!
+        let options: [MTKTextureLoader.Option: Any] = [.SRGB: false]
+
+        do {
+            return try textureLoader.newTexture(URL: url, options: options)
+        } catch {
+            fatalError("Failed to load texture: \(error)")
+        }
+    }
+
     
     func updateInstanceData() {
         // For test: oscillate count between 0 and 100
@@ -142,6 +167,17 @@ class Renderer: NSObject, MTKViewDelegate {
         encoder.setRenderPipelineState(pipelineState)
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
+        
+        // Load Main Texture at tex buffer 0.
+        encoder.setFragmentTexture(texture, index: 0)
+        
+        // Load TexSampler at sampler buffer 0.
+        let samplerDescriptor = MTLSamplerDescriptor()
+        samplerDescriptor.minFilter = .linear
+        samplerDescriptor.magFilter = .linear
+        samplerDescriptor.mipFilter = .linear
+        let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
+        encoder.setFragmentSamplerState(samplerState, index: 0)
 
         if instanceCount > 0 {
             encoder.drawPrimitives(type: .triangleStrip,
