@@ -18,6 +18,8 @@ struct Vertex {
 struct InstanceData {
     float4x4 transform;
     float4 color;
+    float2 uvMin;
+    float2 uvMax;
 };
 
 struct VOut {
@@ -31,12 +33,13 @@ vertex VOut vertex_main(uint vertexId [[vertex_id]],
                          const device Vertex* vertices [[buffer(0)]],
                          const device InstanceData* instances [[buffer(1)]])
 {
-    VOut out;
     const Vertex v = vertices[vertexId];
+    const InstanceData inst = instances[instanceId];
     
+    VOut out;
     float4 pos = float4(v.position, 0.0, 1.0);
     out.position = instances[instanceId].transform * pos;
-    out.uv = v.uv;
+    out.uv = mix(inst.uvMin, inst.uvMax, v.uv); // mix is lerp
     out.color = instances[instanceId].color;
     
     return out;

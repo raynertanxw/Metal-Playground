@@ -17,6 +17,13 @@ struct Vertex {
 struct InstanceData {
     var transform: simd_float4x4
     var color: SIMD4<Float>
+    var uvMin: SIMD2<Float>
+    var uvMax: SIMD2<Float>
+}
+
+struct UVRect {
+    var minUV: SIMD2<Float> // bottom-left
+    var maxUV: SIMD2<Float> // top-right
 }
 
 class Renderer: NSObject, MTKViewDelegate {
@@ -34,13 +41,14 @@ class Renderer: NSObject, MTKViewDelegate {
     var instanceCount = 0
 
     let squareVertices: [Vertex] = [
-        Vertex(position: [-0.5, -0.5], uv: [0, 0]),
-        Vertex(position: [ 0.5, -0.5], uv: [1, 0]),
-        Vertex(position: [-0.5,  0.5], uv: [0, 1]),
-        Vertex(position: [ 0.5,  0.5], uv: [1, 1]),
+        Vertex(position: [-0.5, -0.5], uv: [0, 1]),
+        Vertex(position: [ 0.5, -0.5], uv: [1, 1]),
+        Vertex(position: [-0.5,  0.5], uv: [0, 0]),
+        Vertex(position: [ 0.5,  0.5], uv: [1, 0]),
     ]
     
     var texture: MTLTexture!
+    var uvRects: [String: UVRect] = [:]
 
     var time: Float = 0
 
@@ -62,6 +70,9 @@ class Renderer: NSObject, MTKViewDelegate {
         
         let texture = loadTexture(device: device, name: "main_atlas")
         self.texture = texture
+        
+        let atlas = loadAtlas(named: "main_atlas", textureWidth: 256, textureHeight: 256)
+        self.uvRects = atlas
     }
 
     func buildPipeline(mtkView: MTKView) {
@@ -114,7 +125,13 @@ class Renderer: NSObject, MTKViewDelegate {
                                          options: [])
 
         // Preallocate instance data array (will update it per-frame)
-        instanceData = Array(repeating: InstanceData(transform: matrix_identity_float4x4, color: .zero),
+        instanceData = Array(repeating:
+                                InstanceData(
+                                    transform: matrix_identity_float4x4,
+                                    color: .zero,
+                                    uvMin: SIMD2<Float>.zero,
+                                    uvMax: SIMD2<Float>.zero
+                                ),
                              count: maxInstanceCount)
 
         instanceBuffer = device.makeBuffer(length: maxInstanceCount * MemoryLayout<InstanceData>.stride,
@@ -132,6 +149,37 @@ class Renderer: NSObject, MTKViewDelegate {
             fatalError("Failed to load texture: \(error)")
         }
     }
+    
+    func loadAtlas(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: UVRect] {
+        guard let url = Bundle.main.url(forResource: filename, withExtension: "txt") else {
+            fatalError("Atlas file not found.")
+        }
+
+        let contents = try! String(contentsOf: url, encoding: .utf8)
+        let lines = contents.split(separator: "\n").dropFirst() // skip the count
+
+        var atlas = [String: UVRect]()
+
+        for line in lines {
+            let parts = line.split(separator: " ")
+            guard parts.count == 5 else { continue }
+
+            let name = String(parts[0])
+            let x = Float(parts[1])!
+            let y = Float(parts[2])!
+            let w = Float(parts[3])!
+            let h = Float(parts[4])!
+
+            let minUV = SIMD2<Float>(x / textureWidth, y / textureHeight)
+            let maxUV = SIMD2<Float>((x + w) / textureWidth, (y + h) / textureHeight)
+
+            atlas[name] = UVRect(minUV: minUV, maxUV: maxUV)
+            print("\(name): \(atlas[name]!.minUV) \(atlas[name]!.maxUV), \(x), \(y), \(w), \(h)")
+        }
+
+        return atlas
+    }
+
 
     
     func updateInstanceData() {
@@ -157,8 +205,27 @@ class Renderer: NSObject, MTKViewDelegate {
                 1.0
             )
 
-            instanceData[i] = InstanceData(transform: projectionMatrix * transform, color: color)
+            let spriteName = "Circle_White"
+            let uvRect = uvRects[spriteName]!
+            instanceData[i] = InstanceData(
+                transform: projectionMatrix * transform,
+                color: color,
+                uvMin: uvRect.minUV,
+                uvMax: uvRect.maxUV
+            )
         }
+        
+        { // Test anything static here, replaces the last instance count
+            let spriteName = "player_1"
+            let uvRect = uvRects[spriteName]!
+            let index = max(0, instanceCount - 1)
+            instanceData[index] = InstanceData(
+                transform: projectionMatrix * float4x4(translation: [100, 100, 0]) * float4x4(scaling: [256, 256, 1]),
+                color: SIMD4<Float>(1, 1, 1, 1),
+                uvMin: uvRect.minUV,
+                uvMax: uvRect.maxUV
+            )
+        }()
     }
 
 
