@@ -18,8 +18,8 @@ struct Vertex {
 struct InstanceData {
     float4x4 transform;
     float4 color;
-    float2 uvMin;
-    float2 uvMax;
+    float2 atlasUVMin;
+    float2 atlasUVMax;
 };
 
 struct VOut {
@@ -39,7 +39,7 @@ vertex VOut vertex_main(uint vertexId [[vertex_id]],
     VOut out;
     float4 pos = float4(v.position, 0.0, 1.0);
     out.position = instances[instanceId].transform * pos;
-    out.uv = mix(inst.uvMin, inst.uvMax, v.uv); // mix is lerp
+    out.uv = mix(inst.atlasUVMin, inst.atlasUVMax, v.uv); // mix is lerp
     out.color = instances[instanceId].color;
     
     return out;

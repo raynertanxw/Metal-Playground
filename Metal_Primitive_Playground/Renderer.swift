@@ -21,7 +21,7 @@ struct InstanceData {
     var uvMax: SIMD2<Float>
 }
 
-struct UVRect {
+struct AtlasUVRect {
     var minUV: SIMD2<Float> // bottom-left
     var maxUV: SIMD2<Float> // top-right
 }
@@ -47,8 +47,8 @@ class Renderer: NSObject, MTKViewDelegate {
         Vertex(position: [ 0.5,  0.5], uv: [1, 0]),
     ]
     
-    var texture: MTLTexture!
-    var uvRects: [String: UVRect] = [:]
+    var mainAtlasTexture: MTLTexture!
+    var mainAtlasUVRects: [String: AtlasUVRect] = [:]
 
     var time: Float = 0
 
@@ -69,10 +69,10 @@ class Renderer: NSObject, MTKViewDelegate {
         buildBuffers()
         
         let texture = loadTexture(device: device, name: "main_atlas")
-        self.texture = texture
+        self.mainAtlasTexture = texture
         
-        let atlas = loadAtlas(named: "main_atlas", textureWidth: 256, textureHeight: 256)
-        self.uvRects = atlas
+        let atlasUVs = loadAtlasUV(named: "main_atlas", textureWidth: 256, textureHeight: 256)
+        self.mainAtlasUVRects = atlasUVs
     }
 
     func buildPipeline(mtkView: MTKView) {
@@ -150,7 +150,7 @@ class Renderer: NSObject, MTKViewDelegate {
         }
     }
     
-    func loadAtlas(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: UVRect] {
+    func loadAtlasUV(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: AtlasUVRect] {
         guard let url = Bundle.main.url(forResource: filename, withExtension: "txt") else {
             fatalError("Atlas file not found.")
         }
@@ -158,7 +158,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let contents = try! String(contentsOf: url, encoding: .utf8)
         let lines = contents.split(separator: "\n").dropFirst() // skip the count
 
-        var atlas = [String: UVRect]()
+        var atlasUV = [String: AtlasUVRect]()
 
         for line in lines {
             let parts = line.split(separator: " ")
@@ -173,11 +173,11 @@ class Renderer: NSObject, MTKViewDelegate {
             let minUV = SIMD2<Float>(x / textureWidth, y / textureHeight)
             let maxUV = SIMD2<Float>((x + w) / textureWidth, (y + h) / textureHeight)
 
-            atlas[name] = UVRect(minUV: minUV, maxUV: maxUV)
-            print("\(name): \(atlas[name]!.minUV) \(atlas[name]!.maxUV), \(x), \(y), \(w), \(h)")
+            atlasUV[name] = AtlasUVRect(minUV: minUV, maxUV: maxUV)
+            print("\(name): \(atlasUV[name]!.minUV) \(atlasUV[name]!.maxUV), \(x), \(y), \(w), \(h)")
         }
 
-        return atlas
+        return atlasUV
     }
 
 
@@ -206,7 +206,7 @@ class Renderer: NSObject, MTKViewDelegate {
             )
 
             let spriteName = "Circle_White"
-            let uvRect = uvRects[spriteName]!
+            let uvRect = mainAtlasUVRects[spriteName]!
             instanceData[i] = InstanceData(
                 transform: projectionMatrix * transform,
                 color: color,
@@ -217,7 +217,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         { // Test anything static here, replaces the last instance count
             let spriteName = "player_1"
-            let uvRect = uvRects[spriteName]!
+            let uvRect = mainAtlasUVRects[spriteName]!
             let index = max(0, instanceCount - 1)
             instanceData[index] = InstanceData(
                 transform: projectionMatrix * float4x4(translation: [100, 100, 0]) * float4x4(scaling: [256, 256, 1]),
@@ -248,7 +248,7 @@ class Renderer: NSObject, MTKViewDelegate {
         encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
         
         // Load Main Texture at tex buffer 0.
-        encoder.setFragmentTexture(texture, index: 0)
+        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
         
         // Load TexSampler at sampler buffer 0.
         let samplerDescriptor = MTLSamplerDescriptor()
