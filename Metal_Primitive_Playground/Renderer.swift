@@ -72,8 +72,19 @@ class Renderer: NSObject, MTKViewDelegate {
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_main")
         pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
-        pipelineDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat
-
+        
+        // Enable alpha blending
+        let colorAttachment = pipelineDescriptor.colorAttachments[0]!
+        colorAttachment.pixelFormat = mtkView.colorPixelFormat
+        colorAttachment.isBlendingEnabled = true
+        colorAttachment.rgbBlendOperation = .add
+        colorAttachment.alphaBlendOperation = .add
+        colorAttachment.sourceRGBBlendFactor = .sourceAlpha
+        colorAttachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+        colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
+        colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        
+        // MARK: - VERTEX DESCRIPTOR
         let vertexDescriptor = MTLVertexDescriptor()
         
         // Position
@@ -88,6 +99,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         vertexDescriptor.layouts[0].stride = MemoryLayout<Vertex>.stride
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
+        
 
         
         guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
