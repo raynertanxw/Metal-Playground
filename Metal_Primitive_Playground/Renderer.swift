@@ -26,15 +26,21 @@ struct AtlasUVRect {
     var maxUV: SIMD2<Float> // top-right
 }
 
+struct PrimitiveVertex {
+    var position: SIMD2<Float>
+    var colorRGB: SIMD3<Float> // TODO: Make this RGBA?
+}
+
 class Renderer: NSObject, MTKViewDelegate {
     var projectionMatrix = float4x4(1)
     var screenSize: CGSize = .zero
     
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
+    
+    // MARK: - ATLAS PIPELINE VARS
     var atlasPipelineState: MTLRenderPipelineState!
-    var primitivePipelineState: MTLRenderPipelineState!
-
+    
     var atlasVertexBuffer: MTLBuffer!
     var atlasInstanceBuffer: MTLBuffer!
     var atlasInstanceData: [AtlasInstanceData] = []
@@ -48,9 +54,23 @@ class Renderer: NSObject, MTKViewDelegate {
         AtlasVertex(position: [ 0.5,  0.5], uv: [1, 0]),
     ]
     
+    // TODO: Create a system where you can draw stuff batched by atlas texture. 1 draw call per atlas tex.
     var mainAtlasTexture: MTLTexture!
     var mainAtlasUVRects: [String: AtlasUVRect] = [:]
+    
+    // MARK: - PRIMITIVE PIPELINE VARs
+    var primitivePipelineState: MTLRenderPipelineState!
+    var primitiveVertexBuffer: MTLBuffer!
+    
+    // TODO: Convert this into index vertices and all that.
+    // TODO: Then create all the other fancy stuff like draw circles / rects / lines
+    let primitiveVertices: [PrimitiveVertex] = [
+        PrimitiveVertex(position: [0, 0.5], colorRGB: [0, 0, 1]),
+        PrimitiveVertex(position: [-0.5, -0.5], colorRGB: [1, 1, 1]),
+        PrimitiveVertex(position: [0.5, -0.5], colorRGB: [1, 0, 0])
+    ]
 
+    // MARK: - GAME RELATED
     var time: Float = 0
 
     init(mtkView: MTKView) {
@@ -67,8 +87,10 @@ class Renderer: NSObject, MTKViewDelegate {
 
         super.init()
         buildAtlasPipeline(mtkView: mtkView)
-        //buildPrimitivePipeline(mtkView: mtkView)
-        buildBuffers()
+        buildAtlasBuffers()
+        
+        buildPrimitivePipeline(mtkView: mtkView)
+        buildPrimitiveBuffers()
         
         let texture = loadTexture(device: device, name: "main_atlas")
         self.mainAtlasTexture = texture
@@ -127,10 +149,9 @@ class Renderer: NSObject, MTKViewDelegate {
         }
         
         let primitivePipelineDescriptor = MTLRenderPipelineDescriptor()
-//        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_main")
-//        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
-
-        // TODO: Implement this!!!
+        primitivePipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_primitive")
+        primitivePipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_primitive")
+        primitivePipelineDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat
         
         guard let primitivePipelineState = try? device.makeRenderPipelineState(descriptor: primitivePipelineDescriptor) else {
             fatalError("Unable to create render pipeline state")
@@ -138,7 +159,7 @@ class Renderer: NSObject, MTKViewDelegate {
         self.primitivePipelineState = primitivePipelineState
     }
     
-    func buildBuffers() {
+    func buildAtlasBuffers() {
         atlasVertexBuffer = device.makeBuffer(bytes: atlasAquareVertices,
                                          length: atlasAquareVertices.count * MemoryLayout<AtlasVertex>.stride,
                                          options: [])
@@ -155,6 +176,16 @@ class Renderer: NSObject, MTKViewDelegate {
 
         atlasInstanceBuffer = device.makeBuffer(length: atlasMaxInstanceCount * MemoryLayout<AtlasInstanceData>.stride,
                                            options: [])
+    }
+    
+    func buildPrimitiveBuffers() {
+        guard let primitiveVertexBuffer = device.makeBuffer(bytes: primitiveVertices,
+                                                            length: MemoryLayout<PrimitiveVertex>.stride * primitiveVertices.count,
+                                                            options: []) else {
+            fatalError("Could not create the vertex buffer")
+        }
+        
+        self.primitiveVertexBuffer = primitiveVertexBuffer
     }
     
     func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
@@ -247,27 +278,26 @@ class Renderer: NSObject, MTKViewDelegate {
     }
 
 
+    // MARK: - DRAW FUNCTION
     func draw(in view: MTKView) {
         // TODO: Does this actually happen? Maybe it does, so maybe it's not to throw error here.
         guard let drawable = view.currentDrawable,
               let renderPassDescriptor = view.currentRenderPassDescriptor else { return }
 
         time += 1.0 / Float(view.preferredFramesPerSecond)
-
         updateInstanceData()
         memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
 
-        
         let commandBuffer = commandQueue.makeCommandBuffer()!
+        let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
         
-        // MARK: - ATLAS ENCODER
-        let atlasEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
-        atlasEncoder.setRenderPipelineState(atlasPipelineState)
-        atlasEncoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
-        atlasEncoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
+        // MARK: - ATLAS PIPELINE
+        encoder.setRenderPipelineState(atlasPipelineState)
+        encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
         
         // Load Main Texture at tex buffer 0.
-        atlasEncoder.setFragmentTexture(mainAtlasTexture, index: 0)
+        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
         
         // Load TexSampler at sampler buffer 0.
         let samplerDescriptor = MTLSamplerDescriptor()
@@ -275,18 +305,22 @@ class Renderer: NSObject, MTKViewDelegate {
         samplerDescriptor.magFilter = .linear
         samplerDescriptor.mipFilter = .linear
         let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
-        atlasEncoder.setFragmentSamplerState(samplerState, index: 0)
+        encoder.setFragmentSamplerState(samplerState, index: 0)
 
         if atlasInstanceCount > 0 {
-            atlasEncoder.drawPrimitives(type: .triangleStrip,
+            encoder.drawPrimitives(type: .triangleStrip,
                                    vertexStart: 0,
                                    vertexCount: atlasAquareVertices.count,
                                    instanceCount: atlasInstanceCount)
         }
 
-        atlasEncoder.endEncoding()
+        // MARK: - PRIMITIVE PIPELINE
+        encoder.setRenderPipelineState(primitivePipelineState)
+        encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         
-        // TODO: PRIMITIVE ENCODER HERE
+        encoder.endEncoding()
+        
         
         commandBuffer.present(drawable)
         commandBuffer.commit()
