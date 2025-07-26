@@ -20,12 +20,18 @@ struct InstanceData {
 }
 
 class Renderer: NSObject, MTKViewDelegate {
+    var projectionMatrix = float4x4(1)
+    var screenSize: CGSize = .zero
+    
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
     var pipelineState: MTLRenderPipelineState!
 
     var vertexBuffer: MTLBuffer!
     var instanceBuffer: MTLBuffer!
+    var instanceData: [InstanceData] = []
+    let maxInstanceCount = 1000
+    var instanceCount = 0
 
     let squareVertices: [Vertex] = [
         Vertex(position: [-0.5, -0.5]),
@@ -34,10 +40,7 @@ class Renderer: NSObject, MTKViewDelegate {
         Vertex(position: [ 0.5,  0.5]),
     ]
 
-    let maxInstanceCount = 1000
-    var instanceCount = 0
     var time: Float = 0
-    var instanceData: [InstanceData] = []
 
     init(mtkView: MTKView) {
         guard let device = mtkView.device else {
@@ -101,12 +104,12 @@ class Renderer: NSObject, MTKViewDelegate {
 
         for i in 0..<instanceCount {
             let angle = time + Float(i) * (2 * .pi / Float(instanceCount))
-            let radius: Float = 0.5
+            let radius: Float = Float(screenSize.width) / 3.0
 
             let x = cos(angle) * radius
             let y = sin(angle) * radius
             let rotation = float4x4(rotationZ: angle * 2)
-            let scale = float4x4(scaling: SIMD3<Float>(repeating: 0.05 + 0.05 * sin(angle)))
+            let scale = float4x4(scaling: SIMD3<Float>(repeating: 100.0 + 100.0 * sin(angle)))
             let translation = float4x4(translation: [x, y, 0])
 
             let transform = translation * rotation * scale
@@ -117,7 +120,7 @@ class Renderer: NSObject, MTKViewDelegate {
                 1.0
             )
 
-            instanceData[i] = InstanceData(transform: transform, color: color)
+            instanceData[i] = InstanceData(transform: projectionMatrix * transform, color: color)
         }
     }
 
@@ -153,7 +156,9 @@ class Renderer: NSObject, MTKViewDelegate {
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        // TODO: Implement resizing logic.
+        print("drawableSizeWillChange called, \(size.debugDescription)")
+        screenSize = size
+        projectionMatrix = float4x4.pixelSpaceProjection(screenWidth: Float(size.width), screenHeight: Float(size.height))
     }
 }
 
@@ -178,5 +183,16 @@ extension float4x4 {
         columns.0.y = sin(angle)
         columns.1.x = -sin(angle)
         columns.1.y = cos(angle)
+    }
+    
+    static func pixelSpaceProjection(screenWidth: Float, screenHeight: Float) -> float4x4 {
+        let scaleX = 2.0 / screenWidth
+        let scaleY = 2.0 / screenHeight
+        return float4x4(columns: (
+            SIMD4<Float>( scaleX,      0, 0, 0),
+            SIMD4<Float>(     0,  scaleY, 0, 0),
+            SIMD4<Float>(     0,      0, 1, 0),
+            SIMD4<Float>(     0,      0, 0, 1)
+        ))
     }
 }
