@@ -16,6 +16,7 @@ struct Vertex {
 struct InstanceData {
     var transform: simd_float4x4
     var color: SIMD4<Float>
+    // TODO: Texture & UVs?
 }
 
 class Renderer: NSObject, MTKViewDelegate {
@@ -39,8 +40,16 @@ class Renderer: NSObject, MTKViewDelegate {
     var instanceData: [InstanceData] = []
 
     init(mtkView: MTKView) {
-        self.device = mtkView.device!
-        self.commandQueue = device.makeCommandQueue()!
+        guard let device = mtkView.device else {
+            fatalError("Unable to obtain MTLDevice from MTKView")
+        }
+        
+        guard let cmdQueue = device.makeCommandQueue() else {
+            fatalError("Unable to obtain MTLCommandQueue from MTLDevice")
+        }
+        
+        self.device = device
+        self.commandQueue = cmdQueue
 
         super.init()
         buildPipeline(mtkView: mtkView)
@@ -48,7 +57,10 @@ class Renderer: NSObject, MTKViewDelegate {
     }
 
     func buildPipeline(mtkView: MTKView) {
-        let library = device.makeDefaultLibrary()!
+        guard let library = device.makeDefaultLibrary() else {
+            fatalError("Unable to get default library")
+        }
+        
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_main")
         pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_main")
@@ -62,7 +74,11 @@ class Renderer: NSObject, MTKViewDelegate {
 
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
 
-        pipelineState = try! device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+        
+        guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
+            fatalError("Unable to create render pipeline state")
+        }
+        self.pipelineState = pipelineState
     }
     
     func buildBuffers() {
@@ -77,41 +93,10 @@ class Renderer: NSObject, MTKViewDelegate {
         instanceBuffer = device.makeBuffer(length: maxInstanceCount * MemoryLayout<InstanceData>.stride,
                                            options: [])
     }
-
-
-    func draw(in view: MTKView) {
-        guard let drawable = view.currentDrawable,
-              let descriptor = view.currentRenderPassDescriptor else { return }
-
-        time += 1.0 / Float(view.preferredFramesPerSecond)
-
-//        for i in 0..<instanceCount {
-//            let angle = time + Float(i) * (2 * .pi / Float(instanceCount))
-//            let radius: Float = 0.5
-//
-//            let x = cos(angle) * radius
-//            let y = sin(angle) * radius
-//            let rotation = float4x4(rotationZ: angle * 2)
-//            let scale = float4x4(scaling: SIMD3<Float>(repeating: 0.5))
-//            let translation = float4x4(translation: [x, y, 0])
-//
-//            let transform = translation * rotation * scale
-//            let color = SIMD4<Float>(
-//                0.5 + 0.5 * sin(angle),
-//                0.5 + 0.5 * cos(angle),
-//                0.5 + 0.5 * sin(angle * 0.5),
-//                1.0
-//            )
-//
-//            instanceData[i] = InstanceData(transform: transform, color: color)
-//        }
-//
-//        // Write to the GPU buffer
-//        memcpy(instanceBuffer.contents(), instanceData, instanceCount * MemoryLayout<InstanceData>.stride)
-        
-
-        // For test: oscillate count between 1 and 100
-        instanceCount = Int(10 + 90 * (0.5 + 0.5 * sin(time * 0.5)))
+    
+    func updateInstanceData() {
+        // For test: oscillate count between 0 and 100
+        instanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * 100)
         instanceCount = min(instanceCount, maxInstanceCount)
 
         for i in 0..<instanceCount {
@@ -134,7 +119,17 @@ class Renderer: NSObject, MTKViewDelegate {
 
             instanceData[i] = InstanceData(transform: transform, color: color)
         }
+    }
 
+
+    func draw(in view: MTKView) {
+        // TODO: Does this actually happen? Maybe it does, so maybe it's not to throw error here.
+        guard let drawable = view.currentDrawable,
+              let descriptor = view.currentRenderPassDescriptor else { return }
+
+        time += 1.0 / Float(view.preferredFramesPerSecond)
+
+        updateInstanceData()
         memcpy(instanceBuffer.contents(), instanceData, instanceCount * MemoryLayout<InstanceData>.stride)
 
         
@@ -145,17 +140,21 @@ class Renderer: NSObject, MTKViewDelegate {
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         encoder.setVertexBuffer(instanceBuffer, offset: 0, index: 1)
 
-        encoder.drawPrimitives(type: .triangleStrip,
-                               vertexStart: 0,
-                               vertexCount: squareVertices.count,
-                               instanceCount: instanceCount)
+        if instanceCount > 0 {
+            encoder.drawPrimitives(type: .triangleStrip,
+                                   vertexStart: 0,
+                                   vertexCount: squareVertices.count,
+                                   instanceCount: instanceCount)
+        }
 
         encoder.endEncoding()
         commandBuffer.present(drawable)
         commandBuffer.commit()
     }
 
-    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+    func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+        // TODO: Implement resizing logic.
+    }
 }
 
 // MARK: - Math Helpers

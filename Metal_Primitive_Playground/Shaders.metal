@@ -19,24 +19,24 @@ struct InstanceData {
     float4 color;
 };
 
-struct VSOut {
+struct VOut {
     float4 position [[position]];
     float4 color;
 };
 
-vertex VSOut vertex_main(uint vertexId [[vertex_id]],
+vertex VOut vertex_main(uint vertexId [[vertex_id]],
                          uint instanceId [[instance_id]],
                          const device Vertex* vertices [[buffer(0)]],
                          const device InstanceData* instances [[buffer(1)]])
 {
-    VSOut out;
+    VOut out;
     float4 pos = float4(vertices[vertexId].position, 0.0, 1.0);
     out.position = instances[instanceId].transform * pos;
     out.color = instances[instanceId].color;
     return out;
 }
 
-fragment float4 fragment_main(VSOut in [[stage_in]]) {
+fragment float4 fragment_main(VOut in [[stage_in]]) {
     return in.color;
 }
 
