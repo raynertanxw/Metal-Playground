@@ -349,6 +349,7 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 128, g: 128, b: 128, a: 64)
         drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
         drawPrimitiveRectLines(x: -128, y: -256, w: 640, h: 512, thickness: 4, r: 0, g: 255, b: 255, a: 128)
+        drawPrimitiveRect(x: -512, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
         
         if nextPrimitiveVertexIndex > 0 { // Only do if there are primitives to draw
             ensurePrimitiveBufferCapacity(vertexCount: primitiveVertices.count, indexCount: primitiveIndices.count)
@@ -457,6 +458,30 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveLine(x1: x+w, y1: y+halfThickness,
                           x2: x+w, y2: y+h-halfThickness,
                           thickness: thickness, r: r, g: g, b: b, a: a)
+    }
+
+    func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        let color = colorFromBytes(r: r, g: g, b: b, a: a)
+
+        let v0 = SIMD2<Float>(x, y)
+        let v1 = SIMD2<Float>(x + width, y)
+        let v2 = SIMD2<Float>(x + width, y + height)
+        let v3 = SIMD2<Float>(x, y + height)
+
+        let baseIndex = UInt16(nextPrimitiveVertexIndex)
+
+        primitiveVertices += [
+            PrimitiveVertex(position: v0, colorRGBA: color), // Bottom-left
+            PrimitiveVertex(position: v1, colorRGBA: color), // Bottom-right
+            PrimitiveVertex(position: v2, colorRGBA: color), // Top-right
+            PrimitiveVertex(position: v3, colorRGBA: color)  // Top-left
+        ]
+        nextPrimitiveVertexIndex += 4
+
+        primitiveIndices += [
+            baseIndex, baseIndex + 1, baseIndex + 2, // First triangle
+            baseIndex, baseIndex + 2, baseIndex + 3  // Second triangle
+        ]
     }
 
 }
