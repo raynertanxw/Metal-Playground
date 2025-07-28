@@ -31,6 +31,10 @@ struct PrimitiveVertex {
     var colorRGBA: SIMD4<Float>
 }
 
+struct PrimitiveUniforms {
+    var projectionMatrix: float4x4
+}
+
 class Renderer: NSObject, MTKViewDelegate {
     var projectionMatrix = float4x4(1)
     var screenSize: CGSize = .zero
@@ -342,9 +346,9 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveIndices.removeAll(keepingCapacity: true)
         nextPrimitiveVertexIndex = 0
         
-        drawPrimitiveCircle(x: 0, y: 0, radius: 1.0, r: 128, g: 128, b: 128, a: 64)
-        drawPrimitiveLine(x1: -1, y1: -1, x2: 1, y2: 1, thickness: 0.1, r: 200, g: 100, b: 0, a: 128)
-        drawPrimitiveRectLines(x: -0.2, y: -0.2, w: 0.4, h: 0.4, thickness: 0.05, r: 0, g: 255, b: 255, a: 128)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 128, g: 128, b: 128, a: 64)
+        drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        drawPrimitiveRectLines(x: -128, y: -256, w: 640, h: 512, thickness: 4, r: 0, g: 255, b: 255, a: 128)
         
         if nextPrimitiveVertexIndex > 0 { // Only do if there are primitives to draw
             ensurePrimitiveBufferCapacity(vertexCount: primitiveVertices.count, indexCount: primitiveIndices.count)
@@ -361,7 +365,11 @@ class Renderer: NSObject, MTKViewDelegate {
             
             encoder.setRenderPipelineState(primitivePipelineState)
             encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
+            var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
+            encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 1)
+
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: primitiveIndices.count, indexType: .uint16, indexBuffer: primitiveIndexBuffer, indexBufferOffset: 0)
+            
         }
         
         encoder.endEncoding()

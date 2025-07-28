@@ -10,7 +10,11 @@ using namespace metal;
 
 struct PrimitiveVertex {
     float2 position;
-    float4 color;
+    float4 colorRGBA;
+};
+
+struct PrimitiveUniforms {
+    float4x4 projectionMatrix;
 };
 
 struct PrimitiveFragmentInput {
@@ -19,10 +23,11 @@ struct PrimitiveFragmentInput {
 };
 
 vertex PrimitiveFragmentInput vertex_primitive(constant PrimitiveVertex* vertices,
-                          uint index [[vertex_id]]) {
+                                               uint index [[vertex_id]],
+                                               constant PrimitiveUniforms& uniforms [[buffer(1)]]) {
     return {
-        .position { float4(vertices[index].position, 1.0, 1.0) },
-        .color { float4(vertices[index].color) }
+        .position { uniforms.projectionMatrix * float4(vertices[index].position, 0, 1) },
+        .color { float4(vertices[index].colorRGBA) }
     };
 }
 
