@@ -51,7 +51,7 @@ class Renderer: NSObject, MTKViewDelegate {
     let atlasMaxInstanceCount = 1000
     var atlasInstanceCount = 0
 
-    let atlasAquareVertices: [AtlasVertex] = [
+    let atlasSquareVertices: [AtlasVertex] = [
         AtlasVertex(position: [-0.5, -0.5], uv: [0, 1]),
         AtlasVertex(position: [ 0.5, -0.5], uv: [1, 1]),
         AtlasVertex(position: [-0.5,  0.5], uv: [0, 0]),
@@ -174,8 +174,8 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func buildAtlasBuffers() {
-        atlasVertexBuffer = device.makeBuffer(bytes: atlasAquareVertices,
-                                         length: atlasAquareVertices.count * MemoryLayout<AtlasVertex>.stride,
+        atlasVertexBuffer = device.makeBuffer(bytes: atlasSquareVertices,
+                                         length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
                                          options: [])
 
         // Preallocate instance data array (will update it per-frame)
@@ -366,7 +366,7 @@ class Renderer: NSObject, MTKViewDelegate {
         if atlasInstanceCount > 0 {
             encoder.drawPrimitives(type: .triangleStrip,
                                    vertexStart: 0,
-                                   vertexCount: atlasAquareVertices.count,
+                                   vertexCount: atlasSquareVertices.count,
                                    instanceCount: atlasInstanceCount)
         }
 
