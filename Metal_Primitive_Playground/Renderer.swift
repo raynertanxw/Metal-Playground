@@ -303,6 +303,35 @@ class Renderer: NSObject, MTKViewDelegate {
         }()
     }
 
+    func drawPrimitives() {
+        // NOTE: Clear the primitive buffers
+        primitiveVertices.removeAll(keepingCapacity: true)
+        primitiveIndices.removeAll(keepingCapacity: true)
+        nextPrimitiveVertexIndex = 0
+        
+        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 128, g: 128, b: 128, a: 64)
+        drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        drawPrimitiveRectLines(x: -128, y: -256, w: 640, h: 512, thickness: 4, r: 0, g: 255, b: 255, a: 128)
+        drawPrimitiveRect(x: -512, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+        
+        // Compute fluctuating count between 10 and 200
+        let baseCount = 100 + Int(time * 20)
+        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
+        let circleCount = max(10, baseCount + fluctuation)
+        
+        for _ in 0..<circleCount {
+            let x = Float.random(in: Float(-screenSize.width)..<Float(screenSize.width))
+            let y = Float.random(in: Float(-screenSize.height)..<Float(screenSize.height))
+            let radius = Float.random(in: 5...25)
+            
+            let r = UInt8.random(in: 0...255)
+            let g = UInt8.random(in: 0...255)
+            let b = UInt8.random(in: 0...255)
+            let a: UInt8 = 255
+            
+            drawPrimitiveCircle(x: x, y: y, radius: radius, r: r, g: g, b: b, a: a)
+        }
+    }
 
     // MARK: - DRAW FUNCTION
     func draw(in view: MTKView) {
@@ -341,16 +370,7 @@ class Renderer: NSObject, MTKViewDelegate {
         }
 
         // MARK: - PRIMITIVE PIPELINE
-        // NOTE: Clear the primitive buffers
-        primitiveVertices.removeAll(keepingCapacity: true)
-        primitiveIndices.removeAll(keepingCapacity: true)
-        nextPrimitiveVertexIndex = 0
-        
-        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 128, g: 128, b: 128, a: 64)
-        drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-        drawPrimitiveRectLines(x: -128, y: -256, w: 640, h: 512, thickness: 4, r: 0, g: 255, b: 255, a: 128)
-        drawPrimitiveRect(x: -512, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-        
+        drawPrimitives()
         if nextPrimitiveVertexIndex > 0 { // Only do if there are primitives to draw
             ensurePrimitiveBufferCapacity(vertexCount: primitiveVertices.count, indexCount: primitiveIndices.count)
             
