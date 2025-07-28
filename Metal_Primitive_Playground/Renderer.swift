@@ -59,16 +59,16 @@ class Renderer: NSObject, MTKViewDelegate {
     var mainAtlasUVRects: [String: AtlasUVRect] = [:]
     
     // MARK: - PRIMITIVE PIPELINE VARs
+    var primitiveVertices: [PrimitiveVertex] = []
+    var primitiveIndices: [UInt16] = []
+    private var nextPrimitiveVertexIndex: UInt16 = 0
+    
     var primitivePipelineState: MTLRenderPipelineState!
     var primitiveVertexBuffer: MTLBuffer!
+    var primitiveIndexBuffer: MTLBuffer!
+    private var primitiveVertexCapacity: Int = 0
+    private var primitiveIndexCapacity: Int = 0
     
-    // TODO: Convert this into index vertices and all that.
-    // TODO: Then create all the other fancy stuff like draw circles / rects / lines
-    let primitiveVertices: [PrimitiveVertex] = [
-        PrimitiveVertex(position: [0, 0.5], colorRGBA: [0, 0, 1, 0.5]),
-        PrimitiveVertex(position: [-0.5, -0.5], colorRGBA: [1, 1, 1, 0.5]),
-        PrimitiveVertex(position: [0.5, -0.5], colorRGBA: [1, 0, 0, 0.5])
-    ]
 
     // MARK: - GAME RELATED
     var time: Float = 0
@@ -189,13 +189,25 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func buildPrimitiveBuffers() {
-        guard let primitiveVertexBuffer = device.makeBuffer(bytes: primitiveVertices,
-                                                            length: MemoryLayout<PrimitiveVertex>.stride * primitiveVertices.count,
-                                                            options: []) else {
-            fatalError("Could not create the vertex buffer")
+        ensurePrimitiveBufferCapacity(vertexCount: 1024, indexCount: 2048)
+    }
+    
+    func ensurePrimitiveBufferCapacity(vertexCount: Int, indexCount: Int) {
+        if vertexCount > primitiveVertexCapacity {
+            primitiveVertexCapacity = max(vertexCount, primitiveVertexCapacity * 2, 1024)
+            guard let primitiveVertexBuffer = device.makeBuffer(length: primitiveVertexCapacity * MemoryLayout<PrimitiveVertex>.stride, options: .storageModeShared) else {
+                fatalError("Could not grow primitive vertex buffer")
+            }
+            self.primitiveVertexBuffer = primitiveVertexBuffer
         }
-        
-        self.primitiveVertexBuffer = primitiveVertexBuffer
+
+        if indexCount > primitiveIndexCapacity {
+            primitiveIndexCapacity = max(indexCount, primitiveIndexCapacity * 2, 2048)
+            guard let primitiveIndexBuffer = device.makeBuffer(length: primitiveIndexCapacity * MemoryLayout<UInt16>.stride, options: .storageModeShared) else {
+                fatalError("Could not grow primitive index buffer")
+            }
+            self.primitiveIndexBuffer = primitiveIndexBuffer
+        }
     }
     
     func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
@@ -325,9 +337,32 @@ class Renderer: NSObject, MTKViewDelegate {
         }
 
         // MARK: - PRIMITIVE PIPELINE
-        encoder.setRenderPipelineState(primitivePipelineState)
-        encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        // NOTE: Clear the primitive buffers
+        primitiveVertices.removeAll(keepingCapacity: true)
+        primitiveIndices.removeAll(keepingCapacity: true)
+        nextPrimitiveVertexIndex = 0
+        
+        drawPrimitiveCircle(x: 0, y: 0, radius: 1.0, r: 128, g: 128, b: 128, a: 64)
+        drawPrimitiveLine(x1: -1, y1: -1, x2: 1, y2: 1, thickness: 0.1, r: 200, g: 100, b: 0, a: 128)
+        drawPrimitiveRectLines(x: -0.2, y: -0.2, w: 0.4, h: 0.4, thickness: 0.05, r: 0, g: 255, b: 255, a: 128)
+        
+        if nextPrimitiveVertexIndex > 0 { // Only do if there are primitives to draw
+            ensurePrimitiveBufferCapacity(vertexCount: primitiveVertices.count, indexCount: primitiveIndices.count)
+            
+            let vbPtr = primitiveVertexBuffer.contents().bindMemory(to: PrimitiveVertex.self, capacity: primitiveVertices.count)
+            primitiveVertices.withUnsafeBufferPointer { src in
+                vbPtr.update(from: src.baseAddress!, count: primitiveVertices.count)
+            }
+
+            let ibPtr = primitiveIndexBuffer.contents().bindMemory(to: UInt16.self, capacity: primitiveIndices.count)
+            primitiveIndices.withUnsafeBufferPointer { src in
+                ibPtr.update(from: src.baseAddress!, count: primitiveIndices.count)
+            }
+            
+            encoder.setRenderPipelineState(primitivePipelineState)
+            encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
+            encoder.drawIndexedPrimitives(type: .triangle, indexCount: primitiveIndices.count, indexType: .uint16, indexBuffer: primitiveIndexBuffer, indexBufferOffset: 0)
+        }
         
         encoder.endEncoding()
         
@@ -341,6 +376,81 @@ class Renderer: NSObject, MTKViewDelegate {
         screenSize = size
         projectionMatrix = float4x4.pixelSpaceProjection(screenWidth: Float(size.width), screenHeight: Float(size.height))
     }
+    
+    // MARK: - PRIMITIVE DRAWING FUNCTIONS
+    func colorFromBytes(r: UInt8, g: UInt8, b: UInt8, a: UInt8) -> SIMD4<Float> {
+        SIMD4(Float(r) / 255, Float(g) / 255, Float(b) / 255, Float(a) / 255)
+    }
+
+    func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, segments: Int = 24) {
+        let centerIndex = nextPrimitiveVertexIndex
+        let color = colorFromBytes(r: r, g: g, b: b, a: a)
+        primitiveVertices.append(PrimitiveVertex(position: SIMD2(x, y), colorRGBA: color))
+        nextPrimitiveVertexIndex += 1
+
+        for i in 0...segments {
+            let angle = Float(i) / Float(segments) * Float.pi * 2
+            let vx = x + cos(angle) * radius
+            let vy = y + sin(angle) * radius
+            primitiveVertices.append(PrimitiveVertex(position: SIMD2(vx, vy), colorRGBA: color))
+            nextPrimitiveVertexIndex += 1
+        }
+
+        for i in 0..<segments {
+            primitiveIndices += [
+                centerIndex,
+                centerIndex + UInt16(1 + i),
+                centerIndex + UInt16(1 + ((i + 1) % segments))
+            ]
+        }
+    }
+    
+    func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        let dir = normalize(SIMD2(x2 - x1, y2 - y1))
+        let normal = SIMD2(-dir.y, dir.x)
+        let offset = normal * (thickness * 0.5)
+        let color = colorFromBytes(r: r, g: g, b: b, a: a)
+
+        let verts = [
+            SIMD2(x1, y1) + offset,
+            SIMD2(x1, y1) - offset,
+            SIMD2(x2, y2) - offset,
+            SIMD2(x2, y2) + offset,
+        ]
+
+        let base = nextPrimitiveVertexIndex
+        for v in verts {
+            primitiveVertices.append(PrimitiveVertex(position: v, colorRGBA: color))
+        }
+
+        primitiveIndices += [
+            base, base + 1, base + 2,
+            base, base + 2, base + 3
+        ]
+
+        nextPrimitiveVertexIndex += 4
+    }
+
+    func drawPrimitiveRectLines(x: Float, y: Float, w: Float, h: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        let halfThickness = thickness * 0.5
+        // Bottom
+        drawPrimitiveLine(x1: x-halfThickness, y1: y,
+                          x2: x+w+halfThickness, y2: y,
+                          thickness: thickness, r: r, g: g, b: b, a: a)
+        // Top
+        drawPrimitiveLine(x1: x-halfThickness, y1: y+h,
+                          x2: x+w+halfThickness, y2: y+h,
+                          thickness: thickness, r: r, g: g, b: b, a: a)
+        // Left
+        drawPrimitiveLine(x1: x, y1: y+halfThickness,
+                          x2: x, y2: y+h-halfThickness,
+                          thickness: thickness, r: r, g: g, b: b, a: a)
+        // Right
+        drawPrimitiveLine(x1: x+w, y1: y+halfThickness,
+                          x2: x+w, y2: y+h-halfThickness,
+                          thickness: thickness, r: r, g: g, b: b, a: a)
+    }
+
 }
 
 // MARK: - Math Helpers
