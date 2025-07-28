@@ -10,7 +10,7 @@ using namespace metal;
 
 struct PrimitiveVertex {
     float2 position;
-    float3 color;
+    float4 color;
 };
 
 struct PrimitiveFragmentInput {
@@ -22,7 +22,7 @@ vertex PrimitiveFragmentInput vertex_primitive(constant PrimitiveVertex* vertice
                           uint index [[vertex_id]]) {
     return {
         .position { float4(vertices[index].position, 1.0, 1.0) },
-        .color { float4(vertices[index].color, 1.0) }
+        .color { float4(vertices[index].color) }
     };
 }
 

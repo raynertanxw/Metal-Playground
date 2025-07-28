@@ -28,7 +28,7 @@ struct AtlasUVRect {
 
 struct PrimitiveVertex {
     var position: SIMD2<Float>
-    var colorRGB: SIMD3<Float> // TODO: Make this RGBA?
+    var colorRGBA: SIMD4<Float>
 }
 
 class Renderer: NSObject, MTKViewDelegate {
@@ -65,9 +65,9 @@ class Renderer: NSObject, MTKViewDelegate {
     // TODO: Convert this into index vertices and all that.
     // TODO: Then create all the other fancy stuff like draw circles / rects / lines
     let primitiveVertices: [PrimitiveVertex] = [
-        PrimitiveVertex(position: [0, 0.5], colorRGB: [0, 0, 1]),
-        PrimitiveVertex(position: [-0.5, -0.5], colorRGB: [1, 1, 1]),
-        PrimitiveVertex(position: [0.5, -0.5], colorRGB: [1, 0, 0])
+        PrimitiveVertex(position: [0, 0.5], colorRGBA: [0, 0, 1, 0.5]),
+        PrimitiveVertex(position: [-0.5, -0.5], colorRGBA: [1, 1, 1, 0.5]),
+        PrimitiveVertex(position: [0.5, -0.5], colorRGBA: [1, 0, 0, 0.5])
     ]
 
     // MARK: - GAME RELATED
@@ -151,7 +151,17 @@ class Renderer: NSObject, MTKViewDelegate {
         let primitivePipelineDescriptor = MTLRenderPipelineDescriptor()
         primitivePipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_primitive")
         primitivePipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_primitive")
-        primitivePipelineDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat
+        
+        // Enable alpha blending
+        let colorAttachment = primitivePipelineDescriptor.colorAttachments[0]!
+        colorAttachment.pixelFormat = mtkView.colorPixelFormat
+        colorAttachment.isBlendingEnabled = true
+        colorAttachment.rgbBlendOperation = .add
+        colorAttachment.alphaBlendOperation = .add
+        colorAttachment.sourceRGBBlendFactor = .sourceAlpha
+        colorAttachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+        colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
+        colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
         
         guard let primitivePipelineState = try? device.makeRenderPipelineState(descriptor: primitivePipelineDescriptor) else {
             fatalError("Unable to create render pipeline state")
