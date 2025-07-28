@@ -88,6 +88,8 @@ class Renderer: NSObject, MTKViewDelegate {
         
         self.device = device
         self.commandQueue = cmdQueue
+        
+        
 
         super.init()
         buildAtlasPipeline(mtkView: mtkView)
@@ -407,26 +409,36 @@ class Renderer: NSObject, MTKViewDelegate {
     func colorFromBytes(r: UInt8, g: UInt8, b: UInt8, a: UInt8) -> SIMD4<Float> {
         SIMD4(Float(r) / 255, Float(g) / 255, Float(b) / 255, Float(a) / 255)
     }
-
-    func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, segments: Int = 24) {
+    
+    // Precompute unit circle points once, outside the function
+    private let circleSegmentCount = 24
+    private lazy var unitCirclePoints: [SIMD2<Float>] = {
+        let twoPi = Float.pi * 2
+        return (0..<circleSegmentCount).map { i in
+            let angle = Float(i) / Float(circleSegmentCount) * twoPi
+            return SIMD2(cos(angle), sin(angle))
+        }
+    }()
+    func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         let centerIndex = nextPrimitiveVertexIndex
         let color = colorFromBytes(r: r, g: g, b: b, a: a)
         primitiveVertices.append(PrimitiveVertex(position: SIMD2(x, y), colorRGBA: color))
         nextPrimitiveVertexIndex += 1
 
-        for i in 0...segments {
-            let angle = Float(i) / Float(segments) * Float.pi * 2
-            let vx = x + cos(angle) * radius
-            let vy = y + sin(angle) * radius
+        // Add all perimeter points
+        for point in unitCirclePoints {
+            let vx = x + point.x * radius
+            let vy = y + point.y * radius
             primitiveVertices.append(PrimitiveVertex(position: SIMD2(vx, vy), colorRGBA: color))
             nextPrimitiveVertexIndex += 1
         }
 
-        for i in 0..<segments {
+        // Build indices with wrapping
+        for i in 0..<circleSegmentCount {
             primitiveIndices += [
                 centerIndex,
                 centerIndex + UInt16(1 + i),
-                centerIndex + UInt16(1 + ((i + 1) % segments))
+                centerIndex + UInt16(1 + ((i + 1) % circleSegmentCount))
             ]
         }
     }
