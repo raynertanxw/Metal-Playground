@@ -316,6 +316,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         // Compute fluctuating count between 10 and 200
         let baseCount = 100 + Int(time * 20)
+        //print("baseCount: \(baseCount)")
         let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
         let circleCount = max(10, baseCount + fluctuation)
         
@@ -375,14 +376,10 @@ class Renderer: NSObject, MTKViewDelegate {
             ensurePrimitiveBufferCapacity(vertexCount: primitiveVertices.count, indexCount: primitiveIndices.count)
             
             let vbPtr = primitiveVertexBuffer.contents().bindMemory(to: PrimitiveVertex.self, capacity: primitiveVertices.count)
-            primitiveVertices.withUnsafeBufferPointer { src in
-                vbPtr.update(from: src.baseAddress!, count: primitiveVertices.count)
-            }
-
+            memcpy(vbPtr, primitiveVertices, primitiveVertices.count * MemoryLayout<PrimitiveVertex>.stride)
+            
             let ibPtr = primitiveIndexBuffer.contents().bindMemory(to: UInt16.self, capacity: primitiveIndices.count)
-            primitiveIndices.withUnsafeBufferPointer { src in
-                ibPtr.update(from: src.baseAddress!, count: primitiveIndices.count)
-            }
+            memcpy(ibPtr, primitiveIndices, primitiveIndices.count * MemoryLayout<UInt16>.stride)
             
             encoder.setRenderPipelineState(primitivePipelineState)
             encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
