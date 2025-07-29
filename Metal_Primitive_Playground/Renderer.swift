@@ -66,7 +66,6 @@ class Renderer: NSObject, MTKViewDelegate {
     var primitiveVertices: [PrimitiveVertex] = []
     var primitiveIndices: [UInt32] = []
     private var nextPrimitiveVertexIndex: UInt32 = 0
-    private var nextPrimitiveIndexIndex: UInt32 = 0
     
     var primitivePipelineState: MTLRenderPipelineState!
     var primitiveVertexBuffer: MTLBuffer!
@@ -315,7 +314,6 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveVertices.removeAll(keepingCapacity: true)
         primitiveIndices.removeAll(keepingCapacity: true)
         nextPrimitiveVertexIndex = 0
-        nextPrimitiveIndexIndex = 0
         
         drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 128, g: 128, b: 128, a: 64)
         drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
@@ -446,7 +444,6 @@ class Renderer: NSObject, MTKViewDelegate {
             primitiveIndices.append(centerIndex)
             primitiveIndices.append(centerIndex + UInt32(1 + i))
             primitiveIndices.append(centerIndex + UInt32(1 + ((i + 1) % circleSegmentCount)))
-            nextPrimitiveIndexIndex += 3
         }
     }
     
@@ -473,7 +470,6 @@ class Renderer: NSObject, MTKViewDelegate {
             base, base + 1, base + 2,
             base, base + 2, base + 3
         ]
-        nextPrimitiveIndexIndex += 6
     }
 
     func drawPrimitiveRectLines(x: Float, y: Float, w: Float, h: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
@@ -518,7 +514,6 @@ class Renderer: NSObject, MTKViewDelegate {
             UInt32(baseIndex), UInt32(baseIndex + 1), UInt32(baseIndex + 2), // First triangle
             UInt32(baseIndex), UInt32(baseIndex + 2), UInt32(baseIndex + 3)  // Second triangle
         ])
-        nextPrimitiveIndexIndex += 6
     }
 
 }
