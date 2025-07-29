@@ -48,7 +48,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var atlasVertexBuffer: MTLBuffer!
     var atlasInstanceBuffer: MTLBuffer!
     var atlasInstanceData: [AtlasInstanceData] = []
-    let atlasMaxInstanceCount = 1000
+    let atlasMaxInstanceCount = 100000
     var atlasInstanceCount = 0
 
     let atlasSquareVertices: [AtlasVertex] = [
@@ -195,7 +195,11 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func buildPrimitiveBuffers() {
-        ensurePrimitiveBufferCapacity(vertexCount: 1024, indexCount: 2048)
+        let startingVertexCapacity = 1024 * (1 + circleSegmentCount)
+        let startingIndexCapacity = 1024 * (3 * circleSegmentCount)
+        ensurePrimitiveBufferCapacity(vertexCount: startingVertexCapacity, indexCount: startingIndexCapacity)
+        primitiveVertices.reserveCapacity(startingVertexCapacity)
+        primitiveIndices.reserveCapacity(startingIndexCapacity)
     }
     
     func ensurePrimitiveBufferCapacity(vertexCount: Int, indexCount: Int) {
@@ -317,19 +321,21 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveRect(x: -512, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
         
         // Compute fluctuating count between 10 and 200
-        let baseCount = 100 + Int(time * 20)
+//        let baseCount = 100 + Int(time * 20)
         //print("baseCount: \(baseCount)")
-        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
-        let circleCount = max(10, baseCount + fluctuation)
+//        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
+//        let circleCount = max(10, baseCount + fluctuation)
+        let circleCount = 2000
+        var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
-            let x = Float.random(in: Float(-screenSize.width)..<Float(screenSize.width))
-            let y = Float.random(in: Float(-screenSize.height)..<Float(screenSize.height))
-            let radius = Float.random(in: 5...25)
+            let x = rng.nextFloat(min: Float(-screenSize.width), max: Float(screenSize.width))
+            let y = rng.nextFloat(min: Float(-screenSize.height), max: Float(screenSize.height))
+            let radius = rng.nextFloat(min: 5, max: 25)
             
-            let r = UInt8.random(in: 0...255)
-            let g = UInt8.random(in: 0...255)
-            let b = UInt8.random(in: 0...255)
+            let r = rng.nextUInt8(min: 0, max: 255)
+            let g = rng.nextUInt8(min: 0, max: 255)
+            let b = rng.nextUInt8(min: 0, max: 255)
             let a: UInt8 = 255
             
             drawPrimitiveCircle(x: x, y: y, radius: radius, r: r, g: g, b: b, a: a)
@@ -343,7 +349,7 @@ class Renderer: NSObject, MTKViewDelegate {
               let renderPassDescriptor = view.currentRenderPassDescriptor else { return }
 
         time += 1.0 / Float(view.preferredFramesPerSecond)
-        updateInstanceData()
+//        updateInstanceData()
         memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
 
         let commandBuffer = commandQueue.makeCommandBuffer()!
@@ -419,6 +425,7 @@ class Renderer: NSObject, MTKViewDelegate {
             return SIMD2(cos(angle), sin(angle))
         }
     }()
+//    @inline(__always)
     func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         let centerIndex = nextPrimitiveVertexIndex
         let color = colorFromBytes(r: r, g: g, b: b, a: a)
@@ -427,19 +434,16 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // Add all perimeter points
         for point in unitCirclePoints {
-            let vx = x + point.x * radius
-            let vy = y + point.y * radius
-            primitiveVertices.append(PrimitiveVertex(position: SIMD2(vx, vy), colorRGBA: color))
+            let scaled = SIMD2(x, y) + point * radius
+            primitiveVertices.append(PrimitiveVertex(position: scaled, colorRGBA: color))
             nextPrimitiveVertexIndex += 1
         }
 
         // Build indices with wrapping
         for i in 0..<circleSegmentCount {
-            primitiveIndices += [
-                centerIndex,
-                centerIndex + UInt16(1 + i),
-                centerIndex + UInt16(1 + ((i + 1) % circleSegmentCount))
-            ]
+            primitiveIndices.append(centerIndex)
+            primitiveIndices.append(centerIndex + UInt16(1 + i))
+            primitiveIndices.append(centerIndex + UInt16(1 + ((i + 1) % circleSegmentCount)))
         }
     }
     
