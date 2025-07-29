@@ -64,8 +64,9 @@ class Renderer: NSObject, MTKViewDelegate {
     
     // MARK: - PRIMITIVE PIPELINE VARs
     var primitiveVertices: [PrimitiveVertex] = []
-    var primitiveIndices: [UInt16] = []
-    private var nextPrimitiveVertexIndex: UInt16 = 0
+    var primitiveIndices: [UInt32] = []
+    private var nextPrimitiveVertexIndex: UInt32 = 0
+    private var nextPrimitiveIndexIndex: UInt32 = 0
     
     var primitivePipelineState: MTLRenderPipelineState!
     var primitiveVertexBuffer: MTLBuffer!
@@ -213,7 +214,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
         if indexCount > primitiveIndexCapacity {
             primitiveIndexCapacity = max(indexCount, primitiveIndexCapacity * 2, 2048)
-            guard let primitiveIndexBuffer = device.makeBuffer(length: primitiveIndexCapacity * MemoryLayout<UInt16>.stride, options: .storageModeShared) else {
+            guard let primitiveIndexBuffer = device.makeBuffer(length: primitiveIndexCapacity * MemoryLayout<UInt32>.stride, options: .storageModeShared) else {
                 fatalError("Could not grow primitive index buffer")
             }
             self.primitiveIndexBuffer = primitiveIndexBuffer
@@ -314,6 +315,7 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveVertices.removeAll(keepingCapacity: true)
         primitiveIndices.removeAll(keepingCapacity: true)
         nextPrimitiveVertexIndex = 0
+        nextPrimitiveIndexIndex = 0
         
         drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 128, g: 128, b: 128, a: 64)
         drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
@@ -325,7 +327,7 @@ class Renderer: NSObject, MTKViewDelegate {
         //print("baseCount: \(baseCount)")
 //        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
 //        let circleCount = max(10, baseCount + fluctuation)
-        let circleCount = 2000
+        let circleCount = 10000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
@@ -386,15 +388,15 @@ class Renderer: NSObject, MTKViewDelegate {
             let vbPtr = primitiveVertexBuffer.contents().bindMemory(to: PrimitiveVertex.self, capacity: primitiveVertices.count)
             memcpy(vbPtr, primitiveVertices, primitiveVertices.count * MemoryLayout<PrimitiveVertex>.stride)
             
-            let ibPtr = primitiveIndexBuffer.contents().bindMemory(to: UInt16.self, capacity: primitiveIndices.count)
-            memcpy(ibPtr, primitiveIndices, primitiveIndices.count * MemoryLayout<UInt16>.stride)
+            let ibPtr = primitiveIndexBuffer.contents().bindMemory(to: UInt32.self, capacity: primitiveIndices.count)
+            memcpy(ibPtr, primitiveIndices, primitiveIndices.count * MemoryLayout<UInt32>.stride)
             
             encoder.setRenderPipelineState(primitivePipelineState)
             encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
             var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
             encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 1)
 
-            encoder.drawIndexedPrimitives(type: .triangle, indexCount: primitiveIndices.count, indexType: .uint16, indexBuffer: primitiveIndexBuffer, indexBufferOffset: 0)
+            encoder.drawIndexedPrimitives(type: .triangle, indexCount: primitiveIndices.count, indexType: .uint32, indexBuffer: primitiveIndexBuffer, indexBufferOffset: 0)
             
         }
         
@@ -442,8 +444,9 @@ class Renderer: NSObject, MTKViewDelegate {
         // Build indices with wrapping
         for i in 0..<circleSegmentCount {
             primitiveIndices.append(centerIndex)
-            primitiveIndices.append(centerIndex + UInt16(1 + i))
-            primitiveIndices.append(centerIndex + UInt16(1 + ((i + 1) % circleSegmentCount)))
+            primitiveIndices.append(centerIndex + UInt32(1 + i))
+            primitiveIndices.append(centerIndex + UInt32(1 + ((i + 1) % circleSegmentCount)))
+            nextPrimitiveIndexIndex += 3
         }
     }
     
@@ -464,13 +467,13 @@ class Renderer: NSObject, MTKViewDelegate {
         for v in verts {
             primitiveVertices.append(PrimitiveVertex(position: v, colorRGBA: color))
         }
+        nextPrimitiveVertexIndex += 4
 
         primitiveIndices += [
             base, base + 1, base + 2,
             base, base + 2, base + 3
         ]
-
-        nextPrimitiveVertexIndex += 4
+        nextPrimitiveIndexIndex += 6
     }
 
     func drawPrimitiveRectLines(x: Float, y: Float, w: Float, h: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
@@ -501,7 +504,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let v2 = SIMD2<Float>(x + width, y + height)
         let v3 = SIMD2<Float>(x, y + height)
 
-        let baseIndex = UInt16(nextPrimitiveVertexIndex)
+        let baseIndex = nextPrimitiveVertexIndex
 
         primitiveVertices += [
             PrimitiveVertex(position: v0, colorRGBA: color), // Bottom-left
@@ -511,10 +514,11 @@ class Renderer: NSObject, MTKViewDelegate {
         ]
         nextPrimitiveVertexIndex += 4
 
-        primitiveIndices += [
-            baseIndex, baseIndex + 1, baseIndex + 2, // First triangle
-            baseIndex, baseIndex + 2, baseIndex + 3  // Second triangle
-        ]
+        primitiveIndices.append(contentsOf: [
+            UInt32(baseIndex), UInt32(baseIndex + 1), UInt32(baseIndex + 2), // First triangle
+            UInt32(baseIndex), UInt32(baseIndex + 2), UInt32(baseIndex + 3)  // Second triangle
+        ])
+        nextPrimitiveIndexIndex += 6
     }
 
 }
