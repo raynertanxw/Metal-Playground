@@ -319,8 +319,9 @@ class Renderer: NSObject, MTKViewDelegate {
     func drawPrimitives() {
         primitiveInstanceCount = 0
         
-        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 128, g: 128, b: 128, a: 64)
-        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 255, g: 255, b: 255, a: 64)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
 //        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
 //        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
 //        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
@@ -329,16 +330,16 @@ class Renderer: NSObject, MTKViewDelegate {
 //        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
 //        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
 //        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
-        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
+//        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+//        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+//        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
 
         // Compute fluctuating count between 10 and 200
 //        let baseCount = 100 + Int(time * 20)
         //print("baseCount: \(baseCount)")
 //        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
 //        let circleCount = max(10, baseCount + fluctuation)
-        let circleCount = 0 //10000
+        let circleCount = 10000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
@@ -435,7 +436,7 @@ class Renderer: NSObject, MTKViewDelegate {
             transform: transform,
             color: color,
             shapeType: 2,
-            sdfParams: SIMD4<Float>(0, 0, 0, 0) // You can use sdfParams.x for stroke width etc.
+            sdfParams: SIMD4<Float>(radius, 1.0, 0, 0) // hardcode edge softness for now
         )
         
         primitiveInstanceData[primitiveInstanceCount] = instance

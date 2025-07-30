@@ -79,10 +79,16 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         alpha = smoothstep(1.0, -1.0, dist);
     } else if (in.shapeType == 2) {
         // Circle (fully rounded rect)
-        float radius = 0.5;
-        float edge = 0.001;
-        float dist = length(uv);
-        alpha = smoothstep(radius, radius - edge, dist);
+        float radius = in.sdfParams.x;
+        
+        // uv is in [-0.5, +0.5] quad space → rescale to [-radius, +radius] in pixels
+        float2 pixelPos = uv * radius * 2.0;
+        
+        float dist = length(pixelPos);
+        
+//        float edge = 1.0; // Smoothstep over a ~1 pixel band at the edge
+        float edge = clamp(in.sdfParams.y, 0.5, 3.0);
+        alpha = smoothstep(radius + edge, radius - edge, dist);
     }
 
 
