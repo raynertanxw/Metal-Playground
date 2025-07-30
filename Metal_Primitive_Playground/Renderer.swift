@@ -30,6 +30,10 @@ struct PrimitiveVertex {
     var position: SIMD2<Float>
 }
 
+struct PrimitiveUniforms {
+    var projectionMatrix: float4x4
+}
+
 struct PrimitiveInstanceData {
     var transform: simd_float4x4     // Position, rotation, scale
     var color: SIMD4<Float>            // RGBA
@@ -315,20 +319,23 @@ class Renderer: NSObject, MTKViewDelegate {
     func drawPrimitives() {
         primitiveInstanceCount = 0
         
-        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 255, g: 255, b: 255, a: 255)
-        drawPrimitiveCircle(x: 128, y: 0, radius: 128.0, r: 255, g: 0, b: 0, a: 255)
-        drawPrimitiveCircle(x: 0, y: 128, radius: 128.0, r: 0, g: 255, b: 0, a: 255)
-        drawPrimitiveCircle(x: -128, y: -128, radius: 128.0, r: 0, g: 0, b: 255, a: 255)
-        drawPrimitiveLine(x1: -1000, y1: -1000, x2: 1000, y2: 1000, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-        drawPrimitiveRectLines(x: -128, y: -256, w: 640, h: 512, thickness: 4, r: 0, g: 255, b: 255, a: 128)
-        drawPrimitiveRect(x: -512, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-        
+        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 128, g: 128, b: 128, a: 64)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 255, g: 255, b: 255, a: 64)
+        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
+        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
+        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
+        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
+        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+
         // Compute fluctuating count between 10 and 200
 //        let baseCount = 100 + Int(time * 20)
         //print("baseCount: \(baseCount)")
 //        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
 //        let circleCount = max(10, baseCount + fluctuation)
-        let circleCount = 10000
+        let circleCount = 0 //10000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
@@ -389,6 +396,8 @@ class Renderer: NSObject, MTKViewDelegate {
             encoder.setRenderPipelineState(primitivePipelineState)
             encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
             encoder.setVertexBuffer(primitiveInstanceBuffer, offset: 0, index: 1)
+            var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
+            encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 2)
             // TODO: Convert to Triangle Strip?
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: primitiveInstanceCount)
         }
@@ -414,12 +423,13 @@ class Renderer: NSObject, MTKViewDelegate {
         let color = colorFromBytes(r: r, g: g, b: b, a: a)
         
         // Scale circle based on radius
-        let scaleMatrix = float4x4(scaling: [radius, radius, 1.0])
+        let diameter = radius * 2.0
+        let scaleMatrix = float4x4(scaling: [diameter, diameter, 1.0])
         let translationMatrix = float4x4(translation: [x, y, 0])
         let transform = translationMatrix * scaleMatrix
         
         let instance = PrimitiveInstanceData(
-            transform: projectionMatrix * transform,
+            transform: transform,
             color: color,
             shapeType: 2,                 // 2 = circle (defined in your shader)
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // You can use sdfParams.x for stroke width etc.
@@ -448,7 +458,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let transform = translation * rotation * scale
 
         let instance = PrimitiveInstanceData(
-            transform: projectionMatrix * transform,
+            transform: transform,
             color: color,
             shapeType: 0,                      // Rectangle
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
@@ -484,11 +494,11 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // Build model transform (scale then translate)
         let scaleMatrix = float4x4(scaling: SIMD3<Float>(width, height, 1.0))
-        let translationMatrix = float4x4(translation: [x, y, 0])
+        let translationMatrix = float4x4(translation: [x + (width / 2.0), y + (height / 2.0), 0])
         let transform = translationMatrix * scaleMatrix
 
         let instance = PrimitiveInstanceData(
-            transform: projectionMatrix * transform,
+            transform: transform,
             color: color,
             shapeType: 0,                       // 0 = rectangle
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects

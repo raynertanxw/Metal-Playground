@@ -32,20 +32,20 @@ struct PrimitiveVOut {
 };
 
 vertex PrimitiveVOut vertex_primitive(uint vertexId [[vertex_id]],
-                                               uint instanceId [[instance_id]],
-                                               const constant PrimitiveVertex* vertices [[buffer(0)]],
-                                               const constant PrimitiveInstanceData *instances [[buffer(1)]])
+                                      uint instanceId [[instance_id]],
+                                      const constant PrimitiveVertex* vertices [[buffer(0)]],
+                                      const constant PrimitiveInstanceData *instances [[buffer(1)]],
+                                      const constant PrimitiveUniforms& uniforms [[buffer(2)]])
 {
     const PrimitiveVertex v = vertices[vertexId];
     const PrimitiveInstanceData inst = instances[instanceId];
     
     PrimitiveVOut out;
-    float4 pos = float4(v.position, 0.0, 1.0);
-    
-    // Use pre-baked transform that already includes projection
-    out.position = inst.transform * pos;
-    
     out.localPos = v.position; // Keep for SDF evaluation
+    
+    float4 worldPos = inst.transform * float4(v.position, 0.0, 1.0);
+    out.position = uniforms.projectionMatrix * worldPos;
+    
     out.color = inst.color;
     out.shapeType = inst.shapeType;
     out.sdfParams = inst.sdfParams;
@@ -64,6 +64,7 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         float dist = max(d.x, d.y);
         alpha = smoothstep(0.01, -0.01, dist);
     } else if (in.shapeType == 1) {
+        // TODO: UNTESTED
         // Rounded Rect
         float radius = in.sdfParams.x;
         float2 size = float2(1.0 - radius, 1.0 - radius);
@@ -72,10 +73,10 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         alpha = smoothstep(0.01, -0.01, dist);
     } else if (in.shapeType == 2) {
         // Circle (fully rounded rect)
-        float radius = 0.5; // Or use in.sdfParams.x
-        float edge = 0.01;
-        float dist = length(in.localPos);
-        alpha = smoothstep(radius + edge, radius - edge, dist);
+        float radius = 0.5;
+        float edge = 0.001;
+        float dist = length(uv);
+        alpha = smoothstep(radius, radius - edge, dist);
     }
 
     return float4(in.color.rgb, in.color.a * alpha);
