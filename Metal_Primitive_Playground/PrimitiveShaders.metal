@@ -10,28 +10,75 @@ using namespace metal;
 
 struct PrimitiveVertex {
     float2 position;
-    float4 colorRGBA;
 };
 
 struct PrimitiveUniforms {
     float4x4 projectionMatrix;
 };
 
-struct PrimitiveFragmentInput {
-    float4 position [[position]];
+struct PrimitiveInstanceData {
+    float4x4 transform;
     float4 color;
+    uint shapeType;
+    float4 sdfParams;
 };
 
-vertex PrimitiveFragmentInput vertex_primitive(constant PrimitiveVertex* vertices,
-                                               uint index [[vertex_id]],
-                                               constant PrimitiveUniforms& uniforms [[buffer(1)]]) {
-    return {
-        .position { uniforms.projectionMatrix * float4(vertices[index].position, 0, 1) },
-        .color { float4(vertices[index].colorRGBA) }
-    };
+struct PrimitiveVOut {
+    float4 position [[position]];
+    float2 localPos;
+    float4 color;
+    uint shapeType;
+    float4 sdfParams;
+};
+
+vertex PrimitiveVOut vertex_primitive(uint vertexId [[vertex_id]],
+                                               uint instanceId [[instance_id]],
+                                               const constant PrimitiveVertex* vertices [[buffer(0)]],
+                                               const constant PrimitiveInstanceData *instances [[buffer(1)]])
+{
+    const PrimitiveVertex v = vertices[vertexId];
+    const PrimitiveInstanceData inst = instances[instanceId];
+    
+    PrimitiveVOut out;
+    float4 pos = float4(v.position, 0.0, 1.0);
+    
+    // Use pre-baked transform that already includes projection
+    out.position = inst.transform * pos;
+    
+    out.localPos = v.position; // Keep for SDF evaluation
+    out.color = inst.color;
+    out.shapeType = inst.shapeType;
+    out.sdfParams = inst.sdfParams;
+    
+    return out;
 }
 
-fragment float4 fragment_primitive(PrimitiveFragmentInput input [[stage_in]]) {
-    return input.color;
+fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
+    float2 uv = in.localPos;
+
+    float alpha = 0.0;
+
+    if (in.shapeType == 0) {
+        // Rect
+        float2 d = abs(uv) - 1.0;
+        float dist = max(d.x, d.y);
+        alpha = smoothstep(0.01, -0.01, dist);
+    } else if (in.shapeType == 1) {
+        // Rounded Rect
+        float radius = in.sdfParams.x;
+        float2 size = float2(1.0 - radius, 1.0 - radius);
+        float2 d = abs(uv) - size;
+        float dist = length(max(d, 0.0)) - radius;
+        alpha = smoothstep(0.01, -0.01, dist);
+    } else if (in.shapeType == 2) {
+        // Circle (fully rounded rect)
+        float radius = 0.5; // Or use in.sdfParams.x
+        float edge = 0.01;
+        float dist = length(in.localPos);
+        alpha = smoothstep(radius + edge, radius - edge, dist);
+    }
+
+    return float4(in.color.rgb, in.color.a * alpha);
 }
+
 
