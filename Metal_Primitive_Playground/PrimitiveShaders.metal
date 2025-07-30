@@ -64,13 +64,19 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         float dist = max(d.x, d.y);
         alpha = smoothstep(0.01, -0.01, dist);
     } else if (in.shapeType == 1) {
-        // TODO: UNTESTED
         // Rounded Rect
-        float radius = in.sdfParams.x;
-        float2 size = float2(1.0 - radius, 1.0 - radius);
-        float2 d = abs(uv) - size;
+        float2 halfSize = float2(in.sdfParams.x, in.sdfParams.y);
+        float radius = min(in.sdfParams.z, min(halfSize.x, halfSize.y)); // Nice capsule if cornerRadius > width/height
+
+        // Map localPos from [-0.5, 0.5] to pixel space
+        float2 pixelPos = uv * halfSize * 2.0;
+        
+        float2 size = halfSize - float2(radius);
+        float2 d = abs(pixelPos) - size;
         float dist = length(max(d, 0.0)) - radius;
-        alpha = smoothstep(0.01, -0.01, dist);
+        
+        // Use a smoother edge width (~1.0 pixel range)
+        alpha = smoothstep(1.0, -1.0, dist);
     } else if (in.shapeType == 2) {
         // Circle (fully rounded rect)
         float radius = 0.5;
@@ -78,6 +84,7 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         float dist = length(uv);
         alpha = smoothstep(radius, radius - edge, dist);
     }
+
 
     return float4(in.color.rgb, in.color.a * alpha);
 }

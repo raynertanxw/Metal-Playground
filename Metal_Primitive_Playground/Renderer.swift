@@ -321,14 +321,17 @@ class Renderer: NSObject, MTKViewDelegate {
         
         drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 128, g: 128, b: 128, a: 64)
         drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 255, g: 255, b: 255, a: 64)
-        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
-        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
-        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
-        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
-        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+//        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
+//        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
+//        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+//        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
+//        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+//        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
+//        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
 
         // Compute fluctuating count between 10 and 200
 //        let baseCount = 100 + Int(time * 20)
@@ -431,7 +434,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let instance = PrimitiveInstanceData(
             transform: transform,
             color: color,
-            shapeType: 2,                 // 2 = circle (defined in your shader)
+            shapeType: 2,
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // You can use sdfParams.x for stroke width etc.
         )
         
@@ -460,7 +463,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let instance = PrimitiveInstanceData(
             transform: transform,
             color: color,
-            shapeType: 0,                      // Rectangle
+            shapeType: 0,
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
         )
 
@@ -500,14 +503,35 @@ class Renderer: NSObject, MTKViewDelegate {
         let instance = PrimitiveInstanceData(
             transform: transform,
             color: color,
-            shapeType: 0,                       // 0 = rectangle
+            shapeType: 0,
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
 
         primitiveInstanceData[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
+    
+    func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8)
+    {
+        let color = colorFromBytes(r: r, g: g, b: b, a: a)
+        
+        let scaleMatrix = float4x4(scaling: SIMD3<Float>(width, height, 1.0))
+        let translationMatrix = float4x4(translation: [x + (width / 2.0), y + (height / 2.0), 0])
+        let transform = translationMatrix * scaleMatrix
+        
+        let halfWidth = width * 0.5
+        let halfHeight = height * 0.5
 
+        let instance = PrimitiveInstanceData(
+            transform: transform,
+            color: color,
+            shapeType: 1,
+            sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
+        )
+        
+        primitiveInstanceData[primitiveInstanceCount] = instance
+        primitiveInstanceCount += 1
+    }
 }
 
 // MARK: - Math Helpers
