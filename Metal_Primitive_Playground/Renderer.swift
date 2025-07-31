@@ -44,12 +44,17 @@ struct PrimitiveInstanceData {
         // .z .w: unused
 }
 
+let maxBuffersInFlight = 3
+
 class Renderer: NSObject, MTKViewDelegate {
     var projectionMatrix = float4x4(1)
     var screenSize: CGSize = .zero
     
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
+    
+    let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
+    var triBufferIndex = 0
     
     // MARK: - ATLAS PIPELINE VARS
     var atlasPipelineState: MTLRenderPipelineState!
@@ -75,8 +80,9 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - PRIMITIVE PIPELINE VARs
     var primitivePipelineState: MTLRenderPipelineState!
     var primitiveVertexBuffer: MTLBuffer!
-    var primitiveInstanceBuffer: MTLBuffer!
-    var primitiveInstanceData: [PrimitiveInstanceData] = []
+    var primitiveTriInstanceBuffer: MTLBuffer!
+    var primitiveTriInstanceBufferOffset = 0
+    var primitiveInstancesPtr: UnsafeMutablePointer<PrimitiveInstanceData>
     let primitiveMaxInstanceCount = 100000
     var primitiveInstanceCount = 0
     
@@ -103,14 +109,28 @@ class Renderer: NSObject, MTKViewDelegate {
         self.device = device
         self.commandQueue = cmdQueue
         
+        // MARK: - Build Primitive Buffers
+        self.primitiveVertexBuffer = device.makeBuffer(bytes: primitiveSquareVertices,
+                                                  length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
+                                                  options: [])
         
+        let instanceTriBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
+        guard let buffer = device.makeBuffer(length: instanceTriBufferSize, options: [MTLResourceOptions.storageModeShared]) else {
+            fatalError("Unable to create tri instance buffer for primitives")
+        }
+        self.primitiveTriInstanceBuffer = buffer
+        self.primitiveTriInstanceBuffer.label = "Primitive Tri Instance Buffer"
+        
+        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
 
+        // TODO: reorg and then push super.init down.
         super.init()
+
+        // TODO: See if other buffers need to be built here...
         buildAtlasPipeline(mtkView: mtkView)
         buildAtlasBuffers()
         
         buildPrimitivePipeline(mtkView: mtkView)
-        buildPrimitiveBuffers()
         
         let texture = loadTexture(device: device, name: "main_atlas")
         self.mainAtlasTexture = texture
@@ -207,21 +227,12 @@ class Renderer: NSObject, MTKViewDelegate {
         atlasInstanceBuffer = device.makeBuffer(length: atlasMaxInstanceCount * MemoryLayout<AtlasInstanceData>.stride, options: [])
     }
     
-    func buildPrimitiveBuffers() {
-        primitiveVertexBuffer = device.makeBuffer(bytes: primitiveSquareVertices,
-                                                  length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
-                                                  options: [])
+    private func updateTriBufferStates() {
+        triBufferIndex = (triBufferIndex + 1) % maxBuffersInFlight
         
-        // Preallocate instance data array (will update it per-frame)
-        primitiveInstanceData = Array(repeating:
-                                        PrimitiveInstanceData(
-                                            transform: matrix_identity_float4x4,
-                                            color: .zero,
-                                            shapeType: 0,
-                                            sdfParams: .zero),
-                                      count: primitiveMaxInstanceCount)
+        primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
         
-        primitiveInstanceBuffer = device.makeBuffer(length: primitiveMaxInstanceCount * MemoryLayout<PrimitiveInstanceData>.stride, options:[])
+        primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
     }
     
     func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
@@ -336,7 +347,7 @@ class Renderer: NSObject, MTKViewDelegate {
         //print("baseCount: \(baseCount)")
 //        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
 //        let circleCount = max(10, baseCount + fluctuation)
-        let circleCount = 10000
+        let circleCount = 25000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
@@ -355,62 +366,74 @@ class Renderer: NSObject, MTKViewDelegate {
 
     // MARK: - DRAW FUNCTION
     func draw(in view: MTKView) {
-        // TODO: Does this actually happen? Maybe it does, so maybe it's not to throw error here.
-        guard let drawable = view.currentDrawable,
-              let renderPassDescriptor = view.currentRenderPassDescriptor else { return }
-
-        time += 1.0 / Float(view.preferredFramesPerSecond)
-//        updateInstanceData()
-        memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
-
-        let commandBuffer = commandQueue.makeCommandBuffer()!
-        let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
+        _ = inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
         
-        // MARK: - ATLAS PIPELINE
-        encoder.setRenderPipelineState(atlasPipelineState)
-        encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
-        encoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
-        
-        // Load Main Texture at tex buffer 0.
-        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
-        
-        // Load TexSampler at sampler buffer 0.
-        let samplerDescriptor = MTLSamplerDescriptor()
-        samplerDescriptor.minFilter = .linear
-        samplerDescriptor.magFilter = .linear
-        samplerDescriptor.mipFilter = .linear
-        let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
-        encoder.setFragmentSamplerState(samplerState, index: 0)
-
-        if atlasInstanceCount > 0 {
-            encoder.drawPrimitives(type: .triangleStrip,
-                                   vertexStart: 0,
-                                   vertexCount: atlasSquareVertices.count,
-                                   instanceCount: atlasInstanceCount)
-        }
-
-        // MARK: - PRIMITIVE PIPELINE
-        drawPrimitives()
-        if primitiveInstanceCount > 0 { // Only do if there are primitives to draw
-            memcpy(primitiveInstanceBuffer.contents(), primitiveInstanceData, primitiveInstanceCount * MemoryLayout<PrimitiveInstanceData>.stride)
-
-            encoder.setRenderPipelineState(primitivePipelineState)
-            encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
-            encoder.setVertexBuffer(primitiveInstanceBuffer, offset: 0, index: 1)
+        if let commandBuffer = commandQueue.makeCommandBuffer() {
+            
+            let semaphore = inFlightSemaphore
+            commandBuffer.addCompletedHandler { (_ commandBuffer) -> Swift.Void in
+                semaphore.signal()
+            }
+            
+                       
+            time += 1.0 / Float(view.preferredFramesPerSecond)
+            //        updateInstanceData()
+            memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
+            
+            drawPrimitives()
+            
             var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
-            encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 2)
-            // TODO: Convert to Triangle Strip?
-            encoder.drawPrimitives(type: .triangleStrip,
-                                   vertexStart: 0,
-                                   vertexCount: primitiveSquareVertices.count,
-                                   instanceCount: primitiveInstanceCount)
+
+            /// Delay getting the currentRenderPassDescriptor until we absolutely need it to avoid
+            ///   holding onto the drawable and blocking the display pipeline any longer than necessary
+            let renderPassDescriptor = view.currentRenderPassDescriptor
+            if let renderPassDescriptor = renderPassDescriptor, let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) {
+                
+                // MARK: - ATLAS PIPELINE
+                encoder.setRenderPipelineState(atlasPipelineState)
+                encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
+                encoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
+                
+                // Load Main Texture at tex buffer 0.
+                encoder.setFragmentTexture(mainAtlasTexture, index: 0)
+                
+                // Load TexSampler at sampler buffer 0.
+                let samplerDescriptor = MTLSamplerDescriptor() // TODO: Pluck this out of the loop
+                samplerDescriptor.minFilter = .linear
+                samplerDescriptor.magFilter = .linear
+                samplerDescriptor.mipFilter = .linear
+                let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
+                encoder.setFragmentSamplerState(samplerState, index: 0)
+                
+                if atlasInstanceCount > 0 {
+                    encoder.drawPrimitives(type: .triangleStrip,
+                                           vertexStart: 0,
+                                           vertexCount: atlasSquareVertices.count,
+                                           instanceCount: atlasInstanceCount)
+                }
+                
+                // MARK: - PRIMITIVE PIPELINE
+                if primitiveInstanceCount > 0 { // Only do if there are primitives to draw
+                    encoder.setRenderPipelineState(primitivePipelineState)
+                    encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
+                    encoder.setVertexBuffer(primitiveTriInstanceBuffer, offset: primitiveTriInstanceBufferOffset, index: 1)
+                    encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 2)
+                    encoder.drawPrimitives(type: .triangleStrip,
+                                           vertexStart: 0,
+                                           vertexCount: primitiveSquareVertices.count,
+                                           instanceCount: primitiveInstanceCount)
+                }
+                
+                encoder.endEncoding()
+                
+                
+                if let drawable = view.currentDrawable {
+                    commandBuffer.present(drawable)
+                }
+            }
+            
+            commandBuffer.commit()
         }
-        
-        encoder.endEncoding()
-        
-        
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
@@ -420,26 +443,17 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
+    @inline(__always)
     func colorFromBytes(r: UInt8, g: UInt8, b: UInt8, a: UInt8) -> SIMD4<Float> {
         SIMD4(Float(r) / 255, Float(g) / 255, Float(b) / 255, Float(a) / 255)
     }
     func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        let color = colorFromBytes(r: r, g: g, b: b, a: a)
-        
-        // Scale circle based on radius
-        let diameter = radius * 2.0
-        let scaleMatrix = float4x4(scaling: [diameter, diameter, 1.0])
-        let translationMatrix = float4x4(translation: [x, y, 0])
-        let transform = translationMatrix * scaleMatrix
-        
-        let instance = PrimitiveInstanceData(
-            transform: transform,
-            color: color,
+        primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
+            transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
+            color: colorFromBytes(r: r, g: g, b: b, a: a),
             shapeType: 2,
-            sdfParams: SIMD4<Float>(radius, 1.0, 0, 0) // hardcode edge softness for now
+            sdfParams: SIMD4<Float>(radius, 1.0, 0, 0) // hardcode edge softness to 1.0 for now
         )
-        
-        primitiveInstanceData[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
     
@@ -468,7 +482,7 @@ class Renderer: NSObject, MTKViewDelegate {
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
         )
 
-        primitiveInstanceData[primitiveInstanceCount] = instance
+        primitiveInstancesPtr[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
 
@@ -508,7 +522,7 @@ class Renderer: NSObject, MTKViewDelegate {
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
 
-        primitiveInstanceData[primitiveInstanceCount] = instance
+        primitiveInstancesPtr[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
     
@@ -530,7 +544,7 @@ class Renderer: NSObject, MTKViewDelegate {
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
         )
         
-        primitiveInstanceData[primitiveInstanceCount] = instance
+        primitiveInstancesPtr[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
 }
@@ -538,16 +552,38 @@ class Renderer: NSObject, MTKViewDelegate {
 // MARK: - Math Helpers
 
 extension float4x4 {
+    // TODO: Remove this version
     init(translation t: SIMD3<Float>) {
         self = matrix_identity_float4x4
         columns.3 = SIMD4<Float>(t.x, t.y, t.z, 1)
     }
+    
+    init(tx: Float, ty: Float) {
+        self = matrix_identity_float4x4
+        columns.3.x = tx
+        columns.3.y = ty
+    }
 
+    // TODO: Remove this version
     init(scaling s: SIMD3<Float>) {
         self = matrix_identity_float4x4
         columns.0.x = s.x
         columns.1.y = s.y
         columns.2.z = s.z
+    }
+    
+    init (scaleX: Float, scaleY: Float) {
+        self = matrix_identity_float4x4
+        columns.0.x = scaleX
+        columns.1.y = scaleY
+        columns.2.z = 1.0
+    }
+    
+    init (scaleXY: Float) {
+        self = matrix_identity_float4x4
+        columns.0.x = scaleXY
+        columns.1.y = scaleXY
+        columns.2.z = 1.0
     }
 
     init(rotationZ angle: Float) {
