@@ -59,8 +59,9 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - ATLAS PIPELINE VARS
     var atlasPipelineState: MTLRenderPipelineState!
     var atlasVertexBuffer: MTLBuffer!
-    var atlasInstanceBuffer: MTLBuffer!
-    var atlasInstanceData: [AtlasInstanceData] = []
+    var atlasTriInstanceBuffer: MTLBuffer!
+    var atlasTriInstanceBufferOffset = 0
+    var atlasInstancesPtr: UnsafeMutablePointer<AtlasInstanceData>
     let atlasMaxInstanceCount = 100000
     var atlasInstanceCount = 0
 
@@ -71,7 +72,7 @@ class Renderer: NSObject, MTKViewDelegate {
         AtlasVertex(position: [ 0.5,  0.5], uv: [1, 0]),
     ]
     
-    // TODO: Create a system where you can draw stuff batched by atlas texture. 1 draw call per atlas tex.
+    // TODO: Use Arguement buffers to pass multiple texture atlasses?
     var mainAtlasTexture: MTLTexture!
     var mainAtlasUVRects: [String: AtlasUVRect] = [:]
     
@@ -109,16 +110,31 @@ class Renderer: NSObject, MTKViewDelegate {
         self.device = device
         self.commandQueue = cmdQueue
         
+        // MARK: - Build Atlas Buffers
+        self.atlasVertexBuffer = device.makeBuffer(bytes: atlasSquareVertices,
+                                                   length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
+                                                   options: [])
+
+        let atlasInstanceTriBufferSize = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * maxBuffersInFlight
+        guard let atlasTriBuffer = device.makeBuffer(length: atlasInstanceTriBufferSize, options: [MTLResourceOptions.storageModeShared]) else {
+            fatalError("Unable to create tri instance buffer for atlas")
+        }
+        self.atlasTriInstanceBuffer = atlasTriBuffer
+        self.atlasTriInstanceBuffer.label = "Atlas Tri Instance Buffer"
+        
+        self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
+
+
         // MARK: - Build Primitive Buffers
         self.primitiveVertexBuffer = device.makeBuffer(bytes: primitiveSquareVertices,
                                                   length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
                                                   options: [])
         
-        let instanceTriBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
-        guard let buffer = device.makeBuffer(length: instanceTriBufferSize, options: [MTLResourceOptions.storageModeShared]) else {
+        let primitiveInstanceTriBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
+        guard let primitiveTriBuffer = device.makeBuffer(length: primitiveInstanceTriBufferSize, options: [MTLResourceOptions.storageModeShared]) else {
             fatalError("Unable to create tri instance buffer for primitives")
         }
-        self.primitiveTriInstanceBuffer = buffer
+        self.primitiveTriInstanceBuffer = primitiveTriBuffer
         self.primitiveTriInstanceBuffer.label = "Primitive Tri Instance Buffer"
         
         self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
@@ -128,8 +144,6 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // TODO: See if other buffers need to be built here...
         buildAtlasPipeline(mtkView: mtkView)
-        buildAtlasBuffers()
-        
         buildPrimitivePipeline(mtkView: mtkView)
         
         let texture = loadTexture(device: device, name: "main_atlas")
@@ -209,29 +223,13 @@ class Renderer: NSObject, MTKViewDelegate {
         self.primitivePipelineState = primitivePipelineState
     }
     
-    func buildAtlasBuffers() {
-        atlasVertexBuffer = device.makeBuffer(bytes: atlasSquareVertices,
-                                         length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
-                                         options: [])
-
-        // Preallocate instance data array (will update it per-frame)
-        atlasInstanceData = Array(repeating:
-                                AtlasInstanceData(
-                                    transform: matrix_identity_float4x4,
-                                    color: .zero,
-                                    uvMin: SIMD2<Float>.zero,
-                                    uvMax: SIMD2<Float>.zero
-                                ),
-                             count: atlasMaxInstanceCount)
-
-        atlasInstanceBuffer = device.makeBuffer(length: atlasMaxInstanceCount * MemoryLayout<AtlasInstanceData>.stride, options: [])
-    }
-    
     private func updateTriBufferStates() {
         triBufferIndex = (triBufferIndex + 1) % maxBuffersInFlight
         
-        primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
+        atlasTriInstanceBufferOffset = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * triBufferIndex
+        atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).advanced(by: atlasTriInstanceBufferOffset).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
         
+        primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
         primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
     }
     
@@ -278,7 +276,8 @@ class Renderer: NSObject, MTKViewDelegate {
 
     func updateInstanceData() {
         // For test: oscillate count between 0 and 100
-        atlasInstanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * 100)
+        let testAtlasInstanceMaxCount: Float = 100
+        atlasInstanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * testAtlasInstanceMaxCount)
         atlasInstanceCount = min(atlasInstanceCount, atlasMaxInstanceCount)
 
         for i in 0..<atlasInstanceCount {
@@ -296,7 +295,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
             let spriteName = "Circle_White"
             let uvRect = mainAtlasUVRects[spriteName]!
-            atlasInstanceData[i] = AtlasInstanceData(
+            atlasInstancesPtr[i] = AtlasInstanceData(
                 transform: projectionMatrix * transform,
                 color: color,
                 uvMin: uvRect.minUV,
@@ -307,7 +306,7 @@ class Renderer: NSObject, MTKViewDelegate {
         { // Test anything static here, adds to last instance count
             let spriteName = "player_1"
             let uvRect = mainAtlasUVRects[spriteName]!
-            atlasInstanceData[atlasInstanceCount] = AtlasInstanceData(
+            atlasInstancesPtr[atlasInstanceCount] = AtlasInstanceData(
                 transform: projectionMatrix * float4x4(tx: 100, ty: 100) * float4x4(scaleXY: 256),
                 color: SIMD4<Float>(1, 1, 1, 1),
                 uvMin: uvRect.minUV,
@@ -352,6 +351,11 @@ class Renderer: NSObject, MTKViewDelegate {
         //        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
         //        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
     }
+    
+    func updateGameState() {
+//        updateInstanceData()
+        drawPrimitives()
+    }
 
     // MARK: - DRAW FUNCTION
     func draw(in view: MTKView) {
@@ -364,37 +368,35 @@ class Renderer: NSObject, MTKViewDelegate {
                 semaphore.signal()
             }
             
-                       
+            self.updateTriBufferStates()
+            
             time += 1.0 / Float(view.preferredFramesPerSecond)
-            updateInstanceData()
-            memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
-            
-//            drawPrimitives()
-            
+            self.updateGameState()
             var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
 
             /// Delay getting the currentRenderPassDescriptor until we absolutely need it to avoid
             ///   holding onto the drawable and blocking the display pipeline any longer than necessary
             let renderPassDescriptor = view.currentRenderPassDescriptor
             if let renderPassDescriptor = renderPassDescriptor, let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) {
+                encoder.label = "Primary Render Encoder"
                 
                 // MARK: - ATLAS PIPELINE
-                encoder.setRenderPipelineState(atlasPipelineState)
-                encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
-                encoder.setVertexBuffer(atlasInstanceBuffer, offset: 0, index: 1)
-                
-                // Load Main Texture at tex buffer 0.
-                encoder.setFragmentTexture(mainAtlasTexture, index: 0)
-                
-                // Load TexSampler at sampler buffer 0.
-                let samplerDescriptor = MTLSamplerDescriptor() // TODO: Pluck this out of the loop
-                samplerDescriptor.minFilter = .linear
-                samplerDescriptor.magFilter = .linear
-                samplerDescriptor.mipFilter = .linear
-                let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
-                encoder.setFragmentSamplerState(samplerState, index: 0)
-                
                 if atlasInstanceCount > 0 {
+                    encoder.setRenderPipelineState(atlasPipelineState)
+                    encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
+                    encoder.setVertexBuffer(atlasTriInstanceBuffer, offset: atlasTriInstanceBufferOffset, index: 1)
+                    
+                    // Load Main Texture at tex buffer 0.
+                    encoder.setFragmentTexture(mainAtlasTexture, index: 0)
+                    
+                    // Load TexSampler at sampler buffer 0.
+                    let samplerDescriptor = MTLSamplerDescriptor() // TODO: Pluck this out of the loop
+                    samplerDescriptor.minFilter = .linear
+                    samplerDescriptor.magFilter = .linear
+                    samplerDescriptor.mipFilter = .linear
+                    let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
+                    encoder.setFragmentSamplerState(samplerState, index: 0)
+                    
                     encoder.drawPrimitives(type: .triangleStrip,
                                            vertexStart: 0,
                                            vertexCount: atlasSquareVertices.count,
@@ -414,8 +416,6 @@ class Renderer: NSObject, MTKViewDelegate {
                 }
                 
                 encoder.endEncoding()
-                
-                
                 if let drawable = view.currentDrawable {
                     commandBuffer.present(drawable)
                 }
