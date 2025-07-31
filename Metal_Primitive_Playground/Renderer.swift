@@ -5,8 +5,6 @@
 //  Created by Rayner Tan on 25/7/25.
 //
 
-// Our platform independent renderer class
-
 import MetalKit
 
 struct AtlasVertex {
@@ -35,19 +33,16 @@ struct PrimitiveUniforms {
 }
 
 struct PrimitiveInstanceData {
-    var transform: simd_float4x4     // Position, rotation, scale
-    var color: SIMD4<Float>            // RGBA
-    var shapeType: UInt32              // 0 = rect, 1 = roundedRect, 2 = circle, etc.
-    var sdfParams: SIMD4<Float>        // Custom params (e.g. corner radius, line width)
-        // .x: radius for rounded rect / circle
-        // .y: line thickness for stroked shapes
-        // .z .w: unused
+    var transform: simd_float4x4    // Position, rotation, scale
+    var color: SIMD4<Float>         // RGBA
+    var shapeType: UInt32           // 0 = rect, 1 = roundedRect, 2 = circle
+    var sdfParams: SIMD4<Float>     // Custom params (e.g. corner radius, line width)
 }
 
 let maxBuffersInFlight = 3
 
 class Renderer: NSObject, MTKViewDelegate {
-    var projectionMatrix = float4x4(1)
+    var projectionMatrix = matrix_identity_float4x4
     var screenSize: CGSize = .zero
     
     let device: MTLDevice
@@ -55,11 +50,11 @@ class Renderer: NSObject, MTKViewDelegate {
     
     let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
     var triBufferIndex = 0
-    
+
     // MARK: - ATLAS PIPELINE VARS
-    var atlasPipelineState: MTLRenderPipelineState!
-    var atlasVertexBuffer: MTLBuffer!
-    var atlasTriInstanceBuffer: MTLBuffer!
+    var atlasPipelineState: MTLRenderPipelineState
+    var atlasVertexBuffer: MTLBuffer
+    var atlasTriInstanceBuffer: MTLBuffer
     var atlasTriInstanceBufferOffset = 0
     var atlasInstancesPtr: UnsafeMutablePointer<AtlasInstanceData>
     let atlasMaxInstanceCount = 100000
@@ -75,13 +70,14 @@ class Renderer: NSObject, MTKViewDelegate {
     // TODO: Use Arguement buffers to pass multiple texture atlasses?
     var mainAtlasTexture: MTLTexture!
     var mainAtlasUVRects: [String: AtlasUVRect] = [:]
+    var atlasSamplerState: MTLSamplerState
     
     
     
     // MARK: - PRIMITIVE PIPELINE VARs
-    var primitivePipelineState: MTLRenderPipelineState!
-    var primitiveVertexBuffer: MTLBuffer!
-    var primitiveTriInstanceBuffer: MTLBuffer!
+    var primitivePipelineState: MTLRenderPipelineState
+    var primitiveVertexBuffer: MTLBuffer
+    var primitiveTriInstanceBuffer: MTLBuffer
     var primitiveTriInstanceBufferOffset = 0
     var primitiveInstancesPtr: UnsafeMutablePointer<PrimitiveInstanceData>
     let primitiveMaxInstanceCount = 100000
@@ -94,58 +90,66 @@ class Renderer: NSObject, MTKViewDelegate {
         PrimitiveVertex(position: [0.5, 0.5])
     ]
     
+    var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
+
 
     // MARK: - GAME RELATED
     var time: Float = 0
 
     init(mtkView: MTKView) {
-        guard let device = mtkView.device else {
-            fatalError("Unable to obtain MTLDevice from MTKView")
-        }
-        
-        guard let cmdQueue = device.makeCommandQueue() else {
-            fatalError("Unable to obtain MTLCommandQueue from MTLDevice")
-        }
-        
+        guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
         self.device = device
+        guard let cmdQueue = device.makeCommandQueue() else { fatalError("Unable to obtain MTLCommandQueue from MTLDevice") }
         self.commandQueue = cmdQueue
         
         // MARK: - Build Atlas Buffers
-        self.atlasVertexBuffer = device.makeBuffer(bytes: atlasSquareVertices,
-                                                   length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
-                                                   options: [])
+        guard let atlasVertexBuffer = device.makeBuffer(
+            bytes: atlasSquareVertices,
+            length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
+            options: []) else { fatalError("Unable to create vertex buffer for atlas") }
+        self.atlasVertexBuffer = atlasVertexBuffer
 
-        let atlasInstanceTriBufferSize = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * maxBuffersInFlight
-        guard let atlasTriBuffer = device.makeBuffer(length: atlasInstanceTriBufferSize, options: [MTLResourceOptions.storageModeShared]) else {
-            fatalError("Unable to create tri instance buffer for atlas")
-        }
-        self.atlasTriInstanceBuffer = atlasTriBuffer
+        let atlasTriInstanceBufferSize = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * maxBuffersInFlight
+        guard let atlasTriInstanceBuffer = device.makeBuffer(
+            length: atlasTriInstanceBufferSize,
+            options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for atlas") }
+        self.atlasTriInstanceBuffer = atlasTriInstanceBuffer
         self.atlasTriInstanceBuffer.label = "Atlas Tri Instance Buffer"
         
-        self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
-
+        self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents())
+            .bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
 
         // MARK: - Build Primitive Buffers
-        self.primitiveVertexBuffer = device.makeBuffer(bytes: primitiveSquareVertices,
-                                                  length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
-                                                  options: [])
+        guard let primitiveVertexBuffer = device.makeBuffer(
+            bytes: primitiveSquareVertices,
+            length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
+            options: []) else { fatalError("Unabled to create vertex buffer for primitives") }
+        self.primitiveVertexBuffer = primitiveVertexBuffer
         
-        let primitiveInstanceTriBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
-        guard let primitiveTriBuffer = device.makeBuffer(length: primitiveInstanceTriBufferSize, options: [MTLResourceOptions.storageModeShared]) else {
-            fatalError("Unable to create tri instance buffer for primitives")
-        }
-        self.primitiveTriInstanceBuffer = primitiveTriBuffer
+        let primitiveTriInstanceBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
+        guard let primitiveTriInstanceBuffer = device.makeBuffer(
+            length: primitiveTriInstanceBufferSize,
+            options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for primitives") }
+        self.primitiveTriInstanceBuffer = primitiveTriInstanceBuffer
         self.primitiveTriInstanceBuffer.label = "Primitive Tri Instance Buffer"
         
-        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents())
+            .bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
 
-        // TODO: reorg and then push super.init down.
-        super.init()
+        // MARK: - Build Pipelines & Descriptors & Misc
+        self.atlasPipelineState = Renderer.buildAtlasPipeline(device: device, mtkView: mtkView)
+        self.primitivePipelineState = Renderer.buildPrimitivePipeline(device: device, mtkView: mtkView)
+        let atlasSamplerDescriptor = MTLSamplerDescriptor()
+        atlasSamplerDescriptor.minFilter = .linear
+        atlasSamplerDescriptor.magFilter = .linear
+        atlasSamplerDescriptor.mipFilter = .linear
+        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unabled to create atlas sampler state") }
+        self.atlasSamplerState = atlasSamplerState
 
-        // TODO: See if other buffers need to be built here...
-        buildAtlasPipeline(mtkView: mtkView)
-        buildPrimitivePipeline(mtkView: mtkView)
         
+        super.init()
+        
+        // MARK: - Load Textures
         let texture = loadTexture(device: device, name: "main_atlas")
         self.mainAtlasTexture = texture
         
@@ -153,7 +157,7 @@ class Renderer: NSObject, MTKViewDelegate {
         self.mainAtlasUVRects = atlasUVs
     }
 
-    func buildAtlasPipeline(mtkView: MTKView) {
+    class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
@@ -191,13 +195,13 @@ class Renderer: NSObject, MTKViewDelegate {
         
 
         
-        guard let pipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
+        guard let atlasPipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
             fatalError("Unable to create render pipeline state")
         }
-        self.atlasPipelineState = pipelineState
+        return atlasPipelineState
     }
     
-    func buildPrimitivePipeline(mtkView: MTKView) {
+    class func buildPrimitivePipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
@@ -220,7 +224,7 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let primitivePipelineState = try? device.makeRenderPipelineState(descriptor: primitivePipelineDescriptor) else {
             fatalError("Unable to create render pipeline state")
         }
-        self.primitivePipelineState = primitivePipelineState
+        return primitivePipelineState
     }
     
     private func updateTriBufferStates() {
@@ -320,7 +324,7 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount = 0
         
         // TEST: Draw many primitive circles
-        let circleCount = 25000
+        let circleCount = 100
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
@@ -353,7 +357,7 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func updateGameState() {
-//        updateInstanceData()
+        updateInstanceData()
         drawPrimitives()
     }
 
@@ -372,7 +376,6 @@ class Renderer: NSObject, MTKViewDelegate {
             
             time += 1.0 / Float(view.preferredFramesPerSecond)
             self.updateGameState()
-            var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
 
             /// Delay getting the currentRenderPassDescriptor until we absolutely need it to avoid
             ///   holding onto the drawable and blocking the display pipeline any longer than necessary
@@ -390,12 +393,7 @@ class Renderer: NSObject, MTKViewDelegate {
                     encoder.setFragmentTexture(mainAtlasTexture, index: 0)
                     
                     // Load TexSampler at sampler buffer 0.
-                    let samplerDescriptor = MTLSamplerDescriptor() // TODO: Pluck this out of the loop
-                    samplerDescriptor.minFilter = .linear
-                    samplerDescriptor.magFilter = .linear
-                    samplerDescriptor.mipFilter = .linear
-                    let samplerState = device.makeSamplerState(descriptor: samplerDescriptor)!
-                    encoder.setFragmentSamplerState(samplerState, index: 0)
+                    encoder.setFragmentSamplerState(atlasSamplerState, index: 0)
                     
                     encoder.drawPrimitives(type: .triangleStrip,
                                            vertexStart: 0,
@@ -429,6 +427,7 @@ class Renderer: NSObject, MTKViewDelegate {
         print("drawableSizeWillChange called, \(size.debugDescription)")
         screenSize = size
         projectionMatrix = float4x4.pixelSpaceProjection(screenWidth: Float(size.width), screenHeight: Float(size.height))
+        primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
