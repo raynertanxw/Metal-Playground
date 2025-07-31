@@ -321,8 +321,6 @@ class Renderer: NSObject, MTKViewDelegate {
     }
 
     func drawPrimitives() {
-        primitiveInstanceCount = 0
-        
         // TEST: Draw many primitive circles
         let circleCount = 100
         var rng = FastRandom(seed: UInt64(time * 1000000))
@@ -357,6 +355,9 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func updateGameState() {
+        atlasInstanceCount = 0
+        primitiveInstanceCount = 0
+
         updateInstanceData()
         drawPrimitives()
     }
