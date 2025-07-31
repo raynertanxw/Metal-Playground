@@ -80,13 +80,10 @@ class Renderer: NSObject, MTKViewDelegate {
     let primitiveMaxInstanceCount = 100000
     var primitiveInstanceCount = 0
     
-    let primitiveVertices: [PrimitiveVertex] = [
+    let primitiveSquareVertices: [PrimitiveVertex] = [
         PrimitiveVertex(position: [-0.5, -0.5]),
         PrimitiveVertex(position: [0.5, -0.5]),
         PrimitiveVertex(position: [-0.5, 0.5]),
-        
-        PrimitiveVertex(position: [-0.5, 0.5]),
-        PrimitiveVertex(position: [0.5, -0.5]),
         PrimitiveVertex(position: [0.5, 0.5])
     ]
     
@@ -211,8 +208,8 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func buildPrimitiveBuffers() {
-        primitiveVertexBuffer = device.makeBuffer(bytes: primitiveVertices,
-                                                  length: primitiveVertices.count * MemoryLayout<PrimitiveVertex>.stride,
+        primitiveVertexBuffer = device.makeBuffer(bytes: primitiveSquareVertices,
+                                                  length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
                                                   options: [])
         
         // Preallocate instance data array (will update it per-frame)
@@ -319,9 +316,9 @@ class Renderer: NSObject, MTKViewDelegate {
     func drawPrimitives() {
         primitiveInstanceCount = 0
         
-        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
-        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
-        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
 //        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
 //        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
 //        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
@@ -403,7 +400,10 @@ class Renderer: NSObject, MTKViewDelegate {
             var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
             encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 2)
             // TODO: Convert to Triangle Strip?
-            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6, instanceCount: primitiveInstanceCount)
+            encoder.drawPrimitives(type: .triangleStrip,
+                                   vertexStart: 0,
+                                   vertexCount: primitiveSquareVertices.count,
+                                   instanceCount: primitiveInstanceCount)
         }
         
         encoder.endEncoding()
