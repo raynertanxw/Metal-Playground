@@ -276,8 +276,6 @@ class Renderer: NSObject, MTKViewDelegate {
         return atlasUV
     }
 
-
-    
     func updateInstanceData() {
         // For test: oscillate count between 0 and 100
         atlasInstanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * 100)
@@ -286,14 +284,9 @@ class Renderer: NSObject, MTKViewDelegate {
         for i in 0..<atlasInstanceCount {
             let angle = time + Float(i) * (2 * .pi / Float(atlasInstanceCount))
             let radius: Float = Float(screenSize.width) / 3.0
-
-            let x = cos(angle) * radius
-            let y = sin(angle) * radius
-            let rotation = float4x4(rotationZ: angle * 2)
-            let scale = float4x4(scaling: SIMD3<Float>(repeating: 100.0 + 100.0 * sin(angle)))
-            let translation = float4x4(translation: [x, y, 0])
-
-            let transform = translation * rotation * scale
+            let transform = float4x4(tx: cos(angle) * radius, ty: sin(angle) * radius) *
+                float4x4(rotationZ: angle * 2) *
+                float4x4(scaleXY: 100.0 + 100.0 * sin(angle))
             let color = SIMD4<Float>(
                 0.5 + 0.5 * sin(angle),
                 0.5 + 0.5 * cos(angle),
@@ -311,42 +304,23 @@ class Renderer: NSObject, MTKViewDelegate {
             )
         }
         
-        { // Test anything static here, replaces the last instance count
+        { // Test anything static here, adds to last instance count
             let spriteName = "player_1"
             let uvRect = mainAtlasUVRects[spriteName]!
-            let index = max(0, atlasInstanceCount - 1)
-            atlasInstanceData[index] = AtlasInstanceData(
-                transform: projectionMatrix * float4x4(translation: [100, 100, 0]) * float4x4(scaling: [256, 256, 1]),
+            atlasInstanceData[atlasInstanceCount] = AtlasInstanceData(
+                transform: projectionMatrix * float4x4(tx: 100, ty: 100) * float4x4(scaleXY: 256),
                 color: SIMD4<Float>(1, 1, 1, 1),
                 uvMin: uvRect.minUV,
                 uvMax: uvRect.maxUV
             )
+            atlasInstanceCount += 1
         }()
     }
 
     func drawPrimitives() {
         primitiveInstanceCount = 0
         
-//        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
-//        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
-//        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
-//        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
-//        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
-//        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-//        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-//        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
-//        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-//        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
-//        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-//        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-//        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
-//        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
-
-        // Compute fluctuating count between 10 and 200
-//        let baseCount = 100 + Int(time * 20)
-        //print("baseCount: \(baseCount)")
-//        let fluctuation = Int(sin(time * 1.5) * 90) // range: -90 to +90
-//        let circleCount = max(10, baseCount + fluctuation)
+        // TEST: Draw many primitive circles
         let circleCount = 25000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
@@ -362,6 +336,21 @@ class Renderer: NSObject, MTKViewDelegate {
             
             drawPrimitiveCircle(x: x, y: y, radius: radius, r: r, g: g, b: b, a: a)
         }
+        
+        //        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
+        //        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
+        //        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
+        //        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
+        //        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
+        //        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
+        //        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        //        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
+        //        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+        //        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
+        //        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+        //        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+        //        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+        //        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
     }
 
     // MARK: - DRAW FUNCTION
@@ -377,10 +366,10 @@ class Renderer: NSObject, MTKViewDelegate {
             
                        
             time += 1.0 / Float(view.preferredFramesPerSecond)
-            //        updateInstanceData()
+            updateInstanceData()
             memcpy(atlasInstanceBuffer.contents(), atlasInstanceData, atlasInstanceCount * MemoryLayout<AtlasInstanceData>.stride)
             
-            drawPrimitives()
+//            drawPrimitives()
             
             var primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
 
@@ -445,7 +434,8 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
     @inline(__always)
     func colorFromBytes(r: UInt8, g: UInt8, b: UInt8, a: UInt8) -> SIMD4<Float> {
-        SIMD4(Float(r) / 255, Float(g) / 255, Float(b) / 255, Float(a) / 255)
+        let scale: Float = 1.0 / 255.0
+        return SIMD4(Float(r) * scale, Float(g) * scale, Float(b) * scale, Float(a) * scale)
     }
     func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
@@ -458,8 +448,6 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        let color = colorFromBytes(r: r, g: g, b: b, a: a)
-
         let dx = x2 - x1
         let dy = y2 - y1
         let length = sqrt(dx * dx + dy * dy)
@@ -470,23 +458,21 @@ class Renderer: NSObject, MTKViewDelegate {
         let cy = (y1 + y2) * 0.5
 
         // Build transform: scale -> rotate -> translate
-        let scale = float4x4(scaling: SIMD3<Float>(length, thickness, 1.0))
-        let rotation = float4x4(rotationZ: angle)
-        let translation = float4x4(translation: [cx, cy, 0])
-        let transform = translation * rotation * scale
+        // Multiply: translate * rotation * scale
+        let transform = float4x4(tx: cx, ty: cy) *
+            float4x4(rotationZ: angle) *
+            float4x4(scaleX: length, scaleY: thickness)
 
-        let instance = PrimitiveInstanceData(
+        primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: transform,
-            color: color,
+            color: colorFromBytes(r: r, g: g, b: b, a: a),
             shapeType: 0,
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
         )
-
-        primitiveInstancesPtr[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
 
-
+    // TODO: Convert this to sdf methods.
     func drawPrimitiveRectLines(x: Float, y: Float, w: Float, h: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         let halfThickness = thickness * 0.5
         // Bottom
@@ -508,16 +494,9 @@ class Renderer: NSObject, MTKViewDelegate {
     }
 
     func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        let color = colorFromBytes(r: r, g: g, b: b, a: a)
-
-        // Build model transform (scale then translate)
-        let scaleMatrix = float4x4(scaling: SIMD3<Float>(width, height, 1.0))
-        let translationMatrix = float4x4(translation: [x + (width / 2.0), y + (height / 2.0), 0])
-        let transform = translationMatrix * scaleMatrix
-
         let instance = PrimitiveInstanceData(
-            transform: transform,
-            color: color,
+            transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
+            color: colorFromBytes(r: r, g: g, b: b, a: a),
             shapeType: 0,
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
@@ -528,48 +507,25 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8)
     {
-        let color = colorFromBytes(r: r, g: g, b: b, a: a)
+        let halfWidth = width / 2.0
+        let halfHeight = height / 2.0
         
-        let scaleMatrix = float4x4(scaling: SIMD3<Float>(width, height, 1.0))
-        let translationMatrix = float4x4(translation: [x + (width / 2.0), y + (height / 2.0), 0])
-        let transform = translationMatrix * scaleMatrix
-        
-        let halfWidth = width * 0.5
-        let halfHeight = height * 0.5
-
-        let instance = PrimitiveInstanceData(
-            transform: transform,
-            color: color,
+        primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
+            transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
+            color: colorFromBytes(r: r, g: g, b: b, a: a),
             shapeType: 1,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
         )
-        
-        primitiveInstancesPtr[primitiveInstanceCount] = instance
         primitiveInstanceCount += 1
     }
 }
 
 // MARK: - Math Helpers
-
 extension float4x4 {
-    // TODO: Remove this version
-    init(translation t: SIMD3<Float>) {
-        self = matrix_identity_float4x4
-        columns.3 = SIMD4<Float>(t.x, t.y, t.z, 1)
-    }
-    
     init(tx: Float, ty: Float) {
         self = matrix_identity_float4x4
         columns.3.x = tx
         columns.3.y = ty
-    }
-
-    // TODO: Remove this version
-    init(scaling s: SIMD3<Float>) {
-        self = matrix_identity_float4x4
-        columns.0.x = s.x
-        columns.1.y = s.y
-        columns.2.z = s.z
     }
     
     init (scaleX: Float, scaleY: Float) {
