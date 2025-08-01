@@ -55,7 +55,6 @@ vertex PrimitiveVOut vertex_primitive(uint vertexId [[vertex_id]],
 
 fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
     float2 uv = in.localPos;
-
     float alpha = 0.0;
 
     if (in.shapeType == 0) {
@@ -77,18 +76,15 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         
         // Use a smoother edge width (~1.0 pixel range)
         alpha = smoothstep(1.0, -1.0, dist);
-    } else if (in.shapeType == 2) {
-        // Circle (fully rounded rect)
+    } else if (in.shapeType == 2) { // Circle (fully rounded rect)
         float radius = in.sdfParams.x;
-        
-        // uv is in [-0.5, +0.5] quad space → rescale to [-radius, +radius] in pixels
-        float2 pixelPos = uv * radius * 2.0;
-        
-        float dist = length(pixelPos);
-        
-//        float edge = 1.0; // Smoothstep over a ~1 pixel band at the edge
-        float edge = clamp(in.sdfParams.y, 0.5, 3.0);
+        float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space → rescale to [-radius, radius]
+        float dist = length(pixelPos); // Distance to center which is (0,0)
+        float edge = max(in.sdfParams.y, 0.5);
         alpha = smoothstep(radius + edge, radius - edge, dist);
+        /// If want smoothing quite a bit of blur kind of smoothing, consider doing
+        /// smoothstep(radius, radius - edge, dist); you won't blur beyond the rect
+        /// BUT you will loose some accuracy towards the edge (circle will look smaller than radius)
     }
 
 

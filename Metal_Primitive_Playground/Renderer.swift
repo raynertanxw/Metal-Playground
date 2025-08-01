@@ -338,20 +338,22 @@ class Renderer: NSObject, MTKViewDelegate {
             drawPrimitiveCircle(x: x, y: y, radius: radius, r: r, g: g, b: b, a: a)
         }
         
-                drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
         //        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
         //        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
         //        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
         //        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
         //        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-                drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-                drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
-                drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-                drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
-//                drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-                drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-                drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
-                drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
+        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
+        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
+        //                drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
+        drawPrimitiveRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
+        drawPrimitiveCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
     }
     
     func updateGameState() {
@@ -442,7 +444,7 @@ class Renderer: NSObject, MTKViewDelegate {
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: colorFromBytes(r: r, g: g, b: b, a: a),
             shapeType: 2,
-            sdfParams: SIMD4<Float>(radius, 1.0, 0, 0) // hardcode edge softness to 1.0 for now
+            sdfParams: SIMD4<Float>(radius, 0.5, 0, 0) // hardcode edge softness to 0.5
         )
         primitiveInstanceCount += 1
     }
