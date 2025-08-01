@@ -72,12 +72,20 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
     } else if (in.shapeType == ShapeTypeRoundedRect) {
         float2 halfSize = float2(in.sdfParams.x, in.sdfParams.y);
         float radius = min(in.sdfParams.z, min(halfSize.x, halfSize.y)); // Nice capsule if cornerRadius > width/height
-
+        
         float2 pixelPos = uv * halfSize * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to pixel space
         float2 size = halfSize - float2(radius);
         float2 d = abs(pixelPos) - size; // if d is -ve, means pixel is inside full rect area, no chance of corner radius.
         float dist = length(max(d, 0.0)) - radius;
         alpha = smoothstep(0.5, -0.5, dist);
+    } else if (in.shapeType == ShapeTypeRectLines) {
+        float2 halfSize = float2(in.sdfParams.x, in.sdfParams.y);
+        float thickness = max(in.sdfParams.z, 1.0); // min thickness is 1
+        
+        float2 pixelPos = uv * halfSize * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to pixel space
+        float2 d = abs(pixelPos) - halfSize + float2(thickness);
+        float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+        alpha = smoothstep(-0.5, 0.5, dist);
     } else if (in.shapeType == ShapeTypeCircle) {
         float radius = in.sdfParams.x;
         float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to [-radius, radius]
@@ -87,7 +95,7 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         /// If want smoothing quite a bit of blur kind of smoothing, consider doing
         /// smoothstep(radius, radius - edge, dist); you won't blur beyond the rect
         /// BUT you will loose some accuracy towards the edge (circle will look smaller than radius)
-    } // TODO: Do line SDF, and then stroked rect sdf (rect lines).
+    }
 
 
     return float4(in.color.rgb, in.color.a * alpha);

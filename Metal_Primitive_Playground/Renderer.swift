@@ -323,7 +323,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
     func drawPrimitives() {
         // TEST: Draw many primitive circles
-        let circleCount = 100
+        let circleCount = 0//100
         var rng = FastRandom(seed: UInt64(time * 1000000))
         
         for _ in 0..<circleCount {
@@ -339,19 +339,22 @@ class Renderer: NSObject, MTKViewDelegate {
             drawPrimitiveCircle(x: x, y: y, radius: radius, r: r, g: g, b: b, a: a)
         }
         
-        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
-        //        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
-        //        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-        drawPrimitiveRectLines(x: 0, y: 0, w: 800, h: 600, thickness: 4, r: 0, g: 255, b: 255, a: 128)
-        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
-        //                drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
+//        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
+//        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
+//        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        drawPrimitiveRectLines(x: 0, y: 0, width: 800, height: 600, thickness: 48, r: 0, g: 255, b: 255, a: 255)
+        drawPrimitiveRect(x: 0, y: 0, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
+        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
+        drawPrimitiveRect(x: 0, y: 0, width: 24, height: 600, r: 255, g: 0, b: 0, a: 64)
+//        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+//        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
+//        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+//        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+//        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
 //        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
 //        drawPrimitiveRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
 //        drawPrimitiveCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
@@ -475,27 +478,6 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount += 1
     }
 
-    // TODO: Convert this to sdf methods.
-    func drawPrimitiveRectLines(x: Float, y: Float, w: Float, h: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        let halfThickness = thickness * 0.5
-        // Bottom
-        drawPrimitiveLine(x1: x-halfThickness, y1: y,
-                          x2: x+w+halfThickness, y2: y,
-                          thickness: thickness, r: r, g: g, b: b, a: a)
-        // Top
-        drawPrimitiveLine(x1: x-halfThickness, y1: y+h,
-                          x2: x+w+halfThickness, y2: y+h,
-                          thickness: thickness, r: r, g: g, b: b, a: a)
-        // Left
-        drawPrimitiveLine(x1: x, y1: y+halfThickness,
-                          x2: x, y2: y+h-halfThickness,
-                          thickness: thickness, r: r, g: g, b: b, a: a)
-        // Right
-        drawPrimitiveLine(x1: x+w, y1: y+halfThickness,
-                          x2: x+w, y2: y+h-halfThickness,
-                          thickness: thickness, r: r, g: g, b: b, a: a)
-    }
-
     func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         let instance = PrimitiveInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
@@ -518,6 +500,20 @@ class Renderer: NSObject, MTKViewDelegate {
             color: colorFromBytes(r: r, g: g, b: b, a: a),
             shapeType: ShapeType.roundedRect.rawValue,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
+        )
+        primitiveInstanceCount += 1
+    }
+    
+    func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8)
+    {
+        let halfWidth = width / 2.0
+        let halfHeight = height / 2.0
+        
+        primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
+            transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
+            color: colorFromBytes(r: r, g: g, b: b, a: a),
+            shapeType: ShapeType.rectLines.rawValue,
+            sdfParams: SIMD4<Float>(halfWidth, halfHeight, thickness, 0)
         )
         primitiveInstanceCount += 1
     }
