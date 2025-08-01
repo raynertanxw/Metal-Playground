@@ -64,18 +64,14 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         float2 halfSize = float2(in.sdfParams.x, in.sdfParams.y);
         float radius = min(in.sdfParams.z, min(halfSize.x, halfSize.y)); // Nice capsule if cornerRadius > width/height
 
-        // Map localPos from [-0.5, 0.5] to pixel space
-        float2 pixelPos = uv * halfSize * 2.0;
-        
+        float2 pixelPos = uv * halfSize * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to pixel space
         float2 size = halfSize - float2(radius);
-        float2 d = abs(pixelPos) - size;
+        float2 d = abs(pixelPos) - size; // if d is -ve, means pixel is inside full rect area, no chance of corner radius.
         float dist = length(max(d, 0.0)) - radius;
-        
-        // Use a smoother edge width (~1.0 pixel range)
-        alpha = smoothstep(1.0, -1.0, dist);
+        alpha = smoothstep(0.5, -0.5, dist);
     } else if (in.shapeType == 2) { // Circle (fully rounded rect)
         float radius = in.sdfParams.x;
-        float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space → rescale to [-radius, radius]
+        float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to [-radius, radius]
         float dist = length(pixelPos); // Distance to center which is (0,0)
         float edge = max(in.sdfParams.y, 0.5);
         alpha = smoothstep(radius + edge, radius - edge, dist);
