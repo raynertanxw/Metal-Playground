@@ -57,7 +57,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var atlasTriInstanceBuffer: MTLBuffer
     var atlasTriInstanceBufferOffset = 0
     var atlasInstancesPtr: UnsafeMutablePointer<AtlasInstanceData>
-    let atlasMaxInstanceCount = 100000
+    let atlasMaxInstanceCount = 50000
     var atlasInstanceCount = 0
 
     let atlasSquareVertices: [AtlasVertex] = [
@@ -80,7 +80,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var primitiveTriInstanceBuffer: MTLBuffer
     var primitiveTriInstanceBufferOffset = 0
     var primitiveInstancesPtr: UnsafeMutablePointer<PrimitiveInstanceData>
-    let primitiveMaxInstanceCount = 100000
+    let primitiveMaxInstanceCount = 50000
     var primitiveInstanceCount = 0
     
     let primitiveSquareVertices: [PrimitiveVertex] = [
@@ -279,7 +279,7 @@ class Renderer: NSObject, MTKViewDelegate {
         return atlasUV
     }
 
-    func updateInstanceData() {
+    func updateAtlasInstanceData() {
         // For test: oscillate count between 0 and 100
         let testAtlasInstanceMaxCount: Float = 100
         atlasInstanceCount = Int((sin(time * 2.0) + 1.0) / 2.0 * testAtlasInstanceMaxCount)
@@ -323,20 +323,21 @@ class Renderer: NSObject, MTKViewDelegate {
 
     func drawPrimitives() {
         // TEST: Draw many primitive circles
-        let circleCount = 0//100
+        let circleCount = 1000
         var rng = FastRandom(seed: UInt64(time * 1000000))
+        var color = SIMD4<Float>.zero
         
         for _ in 0..<circleCount {
             let x = rng.nextFloat(min: Float(-screenSize.width), max: Float(screenSize.width))
             let y = rng.nextFloat(min: Float(-screenSize.height), max: Float(screenSize.height))
             let radius = rng.nextFloat(min: 5, max: 25)
             
-            let r = rng.nextUInt8(min: 0, max: 255)
-            let g = rng.nextUInt8(min: 0, max: 255)
-            let b = rng.nextUInt8(min: 0, max: 255)
-            let a: UInt8 = 255
+            color.x = rng.nextUnitFloat()
+            color.y = rng.nextUnitFloat()
+            color.z = rng.nextUnitFloat()
+            color.w = 1.0
             
-            drawPrimitiveCircle(x: x, y: y, radius: radius, r: r, g: g, b: b, a: a)
+            drawPrimitiveCircle(x: x, y: y, radius: radius, color: color)
         }
         
 //        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
@@ -357,16 +358,16 @@ class Renderer: NSObject, MTKViewDelegate {
 //        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
 //        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
 //        drawPrimitiveRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
-        drawPrimitiveCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
-        drawPrimitiveCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
-        drawPrimitiveRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
+//        drawPrimitiveCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
+//        drawPrimitiveCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
+//        drawPrimitiveRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
     }
     
     func updateGameState() {
         atlasInstanceCount = 0
         primitiveInstanceCount = 0
 
-        updateInstanceData()
+        updateAtlasInstanceData()
         drawPrimitives()
     }
 
@@ -446,9 +447,12 @@ class Renderer: NSObject, MTKViewDelegate {
         return SIMD4(Float(r) * scale, Float(g) * scale, Float(b) * scale, Float(a) * scale)
     }
     func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    }
+    func drawPrimitiveCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
-            color: colorFromBytes(r: r, g: g, b: b, a: a),
+            color: color,
             shapeType: ShapeType.circle.rawValue,
             sdfParams: SIMD4<Float>(radius, 0.5, 0, 0) // hardcode edge softness to 0.5
         )
