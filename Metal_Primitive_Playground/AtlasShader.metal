@@ -12,8 +12,8 @@
 using namespace metal;
 
 struct AtlasVertex {
-    float2 position;
-    float2 uv;
+    float2 position [[attribute(AtlasVertAttrPosition)]];
+    float2 uv [[attribute(AtlasVertAttrUV)]];
 };
 
 struct AtlasInstanceData {
@@ -29,18 +29,16 @@ struct AtlasVOut {
     float4 color;
 };
 
-vertex AtlasVOut vertex_atlas(uint vertexId [[vertex_id]],
+vertex AtlasVOut vertex_atlas(AtlasVertex in [[stage_in]],
                          uint instanceId [[instance_id]],
-                         const device AtlasVertex* vertices [[buffer(BufferIndexVertices)]],
-                         const device AtlasInstanceData* instances [[buffer(BufferIndexInstances)]])
+                         const constant AtlasInstanceData* instances [[buffer(BufferIndexInstances)]])
 {
-    const AtlasVertex v = vertices[vertexId];
     const AtlasInstanceData inst = instances[instanceId];
     
     AtlasVOut out;
-    float4 pos = float4(v.position, 0.0, 1.0);
+    float4 pos = float4(in.position, 0.0, 1.0);
     out.position = instances[instanceId].transform * pos;
-    out.uv = mix(inst.atlasUVMin, inst.atlasUVMax, v.uv); // mix is lerp
+    out.uv = mix(inst.atlasUVMin, inst.atlasUVMax, in.uv); // mix is lerp
     out.color = instances[instanceId].color;
     
     return out;

@@ -181,16 +181,17 @@ class Renderer: NSObject, MTKViewDelegate {
         let vertexDescriptor = MTLVertexDescriptor()
         
         // Position
-        vertexDescriptor.attributes[0].format = .float2
-        vertexDescriptor.attributes[0].bufferIndex = 0
-        vertexDescriptor.attributes[0].offset = 0
+        vertexDescriptor.attributes[AtlasVertAttr.position.rawValue].format = .float2
+        vertexDescriptor.attributes[AtlasVertAttr.position.rawValue].offset = 0
+        vertexDescriptor.attributes[AtlasVertAttr.position.rawValue].bufferIndex = BufferIndex.vertices.rawValue
         
         // UV
-        vertexDescriptor.attributes[1].format = .float2
-        vertexDescriptor.attributes[1].bufferIndex = 0
-        vertexDescriptor.attributes[1].offset = MemoryLayout<AtlasVertex>.offset(of: \.uv)!
+        vertexDescriptor.attributes[AtlasVertAttr.UV.rawValue].format = .float2
+        vertexDescriptor.attributes[AtlasVertAttr.UV.rawValue].offset = MemoryLayout<AtlasVertex>.offset(of: \.uv)!
+        vertexDescriptor.attributes[AtlasVertAttr.UV.rawValue].bufferIndex = BufferIndex.vertices.rawValue
         
         vertexDescriptor.layouts[0].stride = MemoryLayout<AtlasVertex>.stride
+        vertexDescriptor.layouts[0].stepFunction = .perVertex
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
         
 

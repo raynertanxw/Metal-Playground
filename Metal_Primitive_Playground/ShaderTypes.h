@@ -29,5 +29,10 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexUniforms = 2,
 };
 
+typedef NS_ENUM(EnumBackingType, AtlasVertAttr) {
+    AtlasVertAttrPosition = 0,
+    AtlasVertAttrUV = 1,
+};
+
 
 #endif /* ShaderTypes_h */
