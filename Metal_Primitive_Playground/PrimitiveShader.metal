@@ -58,6 +58,7 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
     float2 uv = in.localPos;
     float alpha = 0.0;
 
+    // SDF is super useful here: https://iquilezles.org/articles/distfunctions2d/
     if (in.shapeType == ShapeTypeNone) {
         alpha = 1.0;
         in.color.r = 1.0;
@@ -88,10 +89,23 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         alpha = smoothstep(-0.5, 0.5, dist);
     } else if (in.shapeType == ShapeTypeCircle) {
         float radius = in.sdfParams.x;
-        float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to [-radius, radius]
-        float dist = length(pixelPos); // Distance to center which is (0,0)
         float edge = max(in.sdfParams.y, 0.5);
-        alpha = smoothstep(radius + edge, radius - edge, dist);
+        
+        float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to [-radius, radius]
+        float dist = length(pixelPos) - radius;
+        alpha = smoothstep(edge, -edge, dist);
+        /// If want smoothing quite a bit of blur kind of smoothing, consider doing
+        /// smoothstep(radius, radius - edge, dist); you won't blur beyond the rect
+        /// BUT you will loose some accuracy towards the edge (circle will look smaller than radius)
+    } else if (in.shapeType == ShapeTypeCircleLines) {
+        float radius = in.sdfParams.x;
+        float edge = max(in.sdfParams.y, 0.5);
+        float halfThickness = max(in.sdfParams.z, 1.0); // Half thickness to keep it inside stroke style.
+        
+        float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to [-radius, radius]
+        // range from dist + thickness to dist
+        float dist = length(pixelPos) - radius;
+        alpha = smoothstep(edge, -edge, abs(dist + halfThickness) - halfThickness);
         /// If want smoothing quite a bit of blur kind of smoothing, consider doing
         /// smoothstep(radius, radius - edge, dist); you won't blur beyond the rect
         /// BUT you will loose some accuracy towards the edge (circle will look smaller than radius)

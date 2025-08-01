@@ -22,6 +22,7 @@ typedef NS_ENUM(EnumBackingType, ShapeType) {
     ShapeTypeRoundedRect = 2,
     ShapeTypeRectLines = 3,
     ShapeTypeCircle = 4,
+    ShapeTypeCircleLines = 5,
 };
 
 typedef NS_ENUM(EnumBackingType, BufferIndex) {
