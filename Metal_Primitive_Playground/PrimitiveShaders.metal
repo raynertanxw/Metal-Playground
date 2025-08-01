@@ -34,9 +34,9 @@ struct PrimitiveVOut {
 
 vertex PrimitiveVOut vertex_primitive(uint vertexId [[vertex_id]],
                                       uint instanceId [[instance_id]],
-                                      const constant PrimitiveVertex* vertices [[buffer(0)]],
-                                      const constant PrimitiveInstanceData *instances [[buffer(1)]],
-                                      const constant PrimitiveUniforms& uniforms [[buffer(2)]])
+                                      const constant PrimitiveVertex* vertices [[buffer(BufferIndexVertices)]],
+                                      const constant PrimitiveInstanceData *instances [[buffer(BufferIndexInstances)]],
+                                      const constant PrimitiveUniforms& uniforms [[buffer(BufferIndexUniforms)]])
 {
     const PrimitiveVertex v = vertices[vertexId];
     const PrimitiveInstanceData inst = instances[instanceId];

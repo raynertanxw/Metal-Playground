@@ -389,8 +389,8 @@ class Renderer: NSObject, MTKViewDelegate {
                 // MARK: - ATLAS PIPELINE
                 if atlasInstanceCount > 0 {
                     encoder.setRenderPipelineState(atlasPipelineState)
-                    encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: 0)
-                    encoder.setVertexBuffer(atlasTriInstanceBuffer, offset: atlasTriInstanceBufferOffset, index: 1)
+                    encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
+                    encoder.setVertexBuffer(atlasTriInstanceBuffer, offset: atlasTriInstanceBufferOffset, index: BufferIndex.instances.rawValue)
                     
                     // Load Main Texture at tex buffer 0.
                     encoder.setFragmentTexture(mainAtlasTexture, index: 0)
@@ -407,9 +407,9 @@ class Renderer: NSObject, MTKViewDelegate {
                 // MARK: - PRIMITIVE PIPELINE
                 if primitiveInstanceCount > 0 { // Only do if there are primitives to draw
                     encoder.setRenderPipelineState(primitivePipelineState)
-                    encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: 0)
-                    encoder.setVertexBuffer(primitiveTriInstanceBuffer, offset: primitiveTriInstanceBufferOffset, index: 1)
-                    encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: 2)
+                    encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
+                    encoder.setVertexBuffer(primitiveTriInstanceBuffer, offset: primitiveTriInstanceBufferOffset, index: BufferIndex.instances.rawValue)
+                    encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: BufferIndex.uniforms.rawValue)
                     encoder.drawPrimitives(type: .triangleStrip,
                                            vertexStart: 0,
                                            vertexCount: primitiveSquareVertices.count,

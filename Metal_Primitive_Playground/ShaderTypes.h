@@ -23,5 +23,11 @@ typedef NS_ENUM(EnumBackingType, ShapeType) {
     ShapeTypeCircle = 3,
 };
 
+typedef NS_ENUM(EnumBackingType, BufferIndex) {
+    BufferIndexVertices = 0,
+    BufferIndexInstances = 1,
+    BufferIndexUniforms = 2,
+};
+
 
 #endif /* ShaderTypes_h */

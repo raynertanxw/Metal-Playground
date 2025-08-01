@@ -8,6 +8,7 @@
 // File for Metal kernel and shader functions
 
 #include <metal_stdlib>
+#include "ShaderTypes.h"
 using namespace metal;
 
 struct AtlasVertex {
@@ -30,8 +31,8 @@ struct AtlasVOut {
 
 vertex AtlasVOut vertex_atlas(uint vertexId [[vertex_id]],
                          uint instanceId [[instance_id]],
-                         const device AtlasVertex* vertices [[buffer(0)]],
-                         const device AtlasInstanceData* instances [[buffer(1)]])
+                         const device AtlasVertex* vertices [[buffer(BufferIndexVertices)]],
+                         const device AtlasInstanceData* instances [[buffer(BufferIndexInstances)]])
 {
     const AtlasVertex v = vertices[vertexId];
     const AtlasInstanceData inst = instances[instanceId];
