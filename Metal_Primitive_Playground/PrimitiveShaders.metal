@@ -57,13 +57,10 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
     float2 uv = in.localPos;
     float alpha = 0.0;
 
-    if (in.shapeType == 0) {
-        // Rect
-        float2 d = abs(uv) - 1.0;
-        float dist = max(d.x, d.y);
-        alpha = smoothstep(0.01, -0.01, dist);
-    } else if (in.shapeType == 1) {
-        // Rounded Rect
+    if (in.shapeType == 0) { // Rect
+        alpha = 1.0;
+        /// Nothing special needed here. If you want blurring / smoothing then add smoothstep on rect SDF
+    } else if (in.shapeType == 1) { // Rounded Rect
         float2 halfSize = float2(in.sdfParams.x, in.sdfParams.y);
         float radius = min(in.sdfParams.z, min(halfSize.x, halfSize.y)); // Nice capsule if cornerRadius > width/height
 
@@ -85,7 +82,7 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         /// If want smoothing quite a bit of blur kind of smoothing, consider doing
         /// smoothstep(radius, radius - edge, dist); you won't blur beyond the rect
         /// BUT you will loose some accuracy towards the edge (circle will look smaller than radius)
-    }
+    } // TODO: Do line SDF, and then stroked rect sdf (rect lines).
 
 
     return float4(in.color.rgb, in.color.a * alpha);
