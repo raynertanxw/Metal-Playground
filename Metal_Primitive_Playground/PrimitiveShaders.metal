@@ -6,6 +6,7 @@
 //
 
 #include <metal_stdlib>
+#include "ShaderTypes.h"
 using namespace metal;
 
 struct PrimitiveVertex {
@@ -19,7 +20,7 @@ struct PrimitiveUniforms {
 struct PrimitiveInstanceData {
     float4x4 transform;
     float4 color;
-    uint shapeType;
+    int shapeType;
     float4 sdfParams;
 };
 
@@ -27,7 +28,7 @@ struct PrimitiveVOut {
     float4 position [[position]];
     float2 localPos;
     float4 color;
-    uint shapeType;
+    int shapeType;
     float4 sdfParams;
 };
 
@@ -57,10 +58,18 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
     float2 uv = in.localPos;
     float alpha = 0.0;
 
-    if (in.shapeType == 0) { // Rect
+    if (in.shapeType == ShapeTypeNone) {
+        alpha = 1.0;
+        in.color.r = 1.0;
+        in.color.g = 0.0;
+        in.color.b = 1.0;
+        in.color.a = 1.0;
+        /// Magenta full alpha to show unset shape type.
+    }
+    else if (in.shapeType == ShapeTypeRect) {
         alpha = 1.0;
         /// Nothing special needed here. If you want blurring / smoothing then add smoothstep on rect SDF
-    } else if (in.shapeType == 1) { // Rounded Rect
+    } else if (in.shapeType == ShapeTypeRoundedRect) {
         float2 halfSize = float2(in.sdfParams.x, in.sdfParams.y);
         float radius = min(in.sdfParams.z, min(halfSize.x, halfSize.y)); // Nice capsule if cornerRadius > width/height
 
@@ -69,7 +78,7 @@ fragment float4 fragment_primitive(PrimitiveVOut in [[stage_in]]) {
         float2 d = abs(pixelPos) - size; // if d is -ve, means pixel is inside full rect area, no chance of corner radius.
         float dist = length(max(d, 0.0)) - radius;
         alpha = smoothstep(0.5, -0.5, dist);
-    } else if (in.shapeType == 2) { // Circle (fully rounded rect)
+    } else if (in.shapeType == ShapeTypeCircle) {
         float radius = in.sdfParams.x;
         float2 pixelPos = uv * radius * 2.0; // uv is [-0.5, 0.5] quad space -> rescale to [-radius, radius]
         float dist = length(pixelPos); // Distance to center which is (0,0)

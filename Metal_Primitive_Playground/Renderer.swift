@@ -33,10 +33,10 @@ struct PrimitiveUniforms {
 }
 
 struct PrimitiveInstanceData {
-    var transform: simd_float4x4    // Position, rotation, scale
-    var color: SIMD4<Float>         // RGBA
-    var shapeType: UInt32           // 0 = rect, 1 = roundedRect, 2 = circle
-    var sdfParams: SIMD4<Float>     // Custom params (e.g. corner radius, line width)
+    var transform: simd_float4x4
+    var color: SIMD4<Float>
+    var shapeType: Int
+    var sdfParams: SIMD4<Float>
 }
 
 let maxBuffersInFlight = 3
@@ -443,7 +443,7 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: colorFromBytes(r: r, g: g, b: b, a: a),
-            shapeType: 2,
+            shapeType: ShapeType.circle.rawValue,
             sdfParams: SIMD4<Float>(radius, 0.5, 0, 0) // hardcode edge softness to 0.5
         )
         primitiveInstanceCount += 1
@@ -468,7 +468,7 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: transform,
             color: colorFromBytes(r: r, g: g, b: b, a: a),
-            shapeType: 0,
+            shapeType: ShapeType.rect.rawValue,
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
         )
         primitiveInstanceCount += 1
@@ -499,7 +499,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let instance = PrimitiveInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
             color: colorFromBytes(r: r, g: g, b: b, a: a),
-            shapeType: 0,
+            shapeType: ShapeType.rect.rawValue,
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
 
@@ -515,7 +515,7 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: colorFromBytes(r: r, g: g, b: b, a: a),
-            shapeType: 1,
+            shapeType: ShapeType.roundedRect.rawValue,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
         )
         primitiveInstanceCount += 1
