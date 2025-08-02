@@ -27,7 +27,7 @@ class GameViewController: NSViewController {
             print("Metal is not supported on this device")
             return
         }
-        let textRenderer = TextRenderer(device: defaultDevice, fontName: "roboto")
+        let textRenderer = TextRenderer(device: defaultDevice, fontName: "roboto", pixelFormat: mtkView.colorPixelFormat)
 
         mtkView.device = defaultDevice
         renderer = Renderer(mtkView: mtkView, textRenderer: textRenderer)

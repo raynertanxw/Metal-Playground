@@ -13,6 +13,11 @@ struct TextVertex {
     var texCoord: SIMD2<Float>
 }
 
+struct TextFragmentUniforms {
+    var textColor: SIMD4<Float>
+    var distanceRange: Float
+}
+
 class TextRenderer {
 
     // MARK: - Properties
@@ -31,7 +36,7 @@ class TextRenderer {
 
     // MARK: - Initialization
 
-    init(device: MTLDevice, fontName: String) {
+    init(device: MTLDevice, fontName: String, pixelFormat: MTLPixelFormat) {
         self.device = device
 
         // 1. Load Font Atlas Data (JSON and PNG)
@@ -45,16 +50,17 @@ class TextRenderer {
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.fragmentFunction = fragmentFunction
-        pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm // Match your MTKView's pixelFormat
         
         // Enable alpha blending
-        pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
-        pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
-        pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
-        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .one
-        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
-        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        let colorAttachment = pipelineDescriptor.colorAttachments[0]!
+        colorAttachment.pixelFormat = pixelFormat
+        colorAttachment.isBlendingEnabled = true
+        colorAttachment.rgbBlendOperation = .add
+        colorAttachment.alphaBlendOperation = .add
+        colorAttachment.sourceRGBBlendFactor = .sourceAlpha
+        colorAttachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+        colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
+        colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
         let vertexDescriptor = MTLVertexDescriptor()
         vertexDescriptor.attributes[0].format = .float2 // position
@@ -143,10 +149,8 @@ class TextRenderer {
         var projectionMatrix = projectionMatrix
         encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 1) // projection matrix at buffer(1)
         
-        var textColor = color
-        encoder.setFragmentBytes(&textColor, length: MemoryLayout<SIMD4<Float>>.stride, index: 0) // text color at buffer(0)
-        var distanceRange = Float(fontAtlas.atlas.distanceRange)
-        encoder.setFragmentBytes(&distanceRange, length: MemoryLayout<Float>.stride, index: 1) // distanceRange at buffer(1)
+        var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
+        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
         encoder.setFragmentTexture(texture, index: 0)
         
         // 6. Draw
