@@ -41,19 +41,18 @@ float median(float r, float g, float b) {
 }
 
 fragment float4 text_fragment_shader(VertexOut in [[stage_in]],
-                                      texture2d<float> sdfTexture [[texture(0)]],
-                                      constant float4 &textColor [[buffer(0)]])
+                                     texture2d<float> sdfTexture [[texture(0)]],
+                                     constant float4 &textColor [[buffer(0)]],
+                                     constant float &distanceRange [[buffer(1)]])
 {
     constexpr sampler texSampler(min_filter::linear, mag_filter::linear);
 
     float3 msdf = sdfTexture.sample(texSampler, in.texCoord).rgb;
     float sd = median(msdf.r, msdf.g, msdf.b);
 
-    float sdfPixelRange = 8.0; // match the '-pxrange 8' from atlas generator
     float screenPxRange = max(fwidth(sd), 1e-4); // Prevent divide-by-zero or zero smoothing
-    
-    float edgeOffset = screenPxRange / sdfPixelRange;
-    float bias = -0.03;
+    float edgeOffset = screenPxRange / distanceRange;
+    float bias = -0.00;
     
     float alpha = smoothstep(0.5 + bias - edgeOffset, 0.5 + bias + edgeOffset, sd);
     return float4(textColor.rgb * alpha, textColor.a * alpha);

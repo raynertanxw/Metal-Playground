@@ -16,9 +16,7 @@ struct TextVertex {
 class TextRenderer {
 
     // MARK: - Properties
-    
     private let device: MTLDevice
-    private let commandQueue: MTLCommandQueue
     private let pipelineState: MTLRenderPipelineState
     private let texture: MTLTexture
     
@@ -35,7 +33,6 @@ class TextRenderer {
 
     init(device: MTLDevice, fontName: String) {
         self.device = device
-        self.commandQueue = device.makeCommandQueue()!
 
         // 1. Load Font Atlas Data (JSON and PNG)
         (self.fontAtlas, self.texture) = Self.loadFontAtlas(device: device, fontName: fontName)
@@ -148,6 +145,8 @@ class TextRenderer {
         
         var textColor = color
         encoder.setFragmentBytes(&textColor, length: MemoryLayout<SIMD4<Float>>.stride, index: 0) // text color at buffer(0)
+        var distanceRange = Float(fontAtlas.atlas.distanceRange)
+        encoder.setFragmentBytes(&distanceRange, length: MemoryLayout<Float>.stride, index: 1) // distanceRange at buffer(1)
         encoder.setFragmentTexture(texture, index: 0)
         
         // 6. Draw
