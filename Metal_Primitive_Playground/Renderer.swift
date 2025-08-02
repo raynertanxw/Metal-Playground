@@ -47,7 +47,8 @@ class Renderer: NSObject, MTKViewDelegate {
     
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
-    
+    var textRenderer: TextRenderer!
+
     let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
     var triBufferIndex = 0
     
@@ -96,7 +97,9 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - GAME RELATED
     var time: Float = 0
     
-    init(mtkView: MTKView) {
+    init(mtkView: MTKView, textRenderer: TextRenderer) {
+        self.textRenderer = textRenderer
+        
         guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
         self.device = device
         guard let cmdQueue = device.makeCommandQueue() else { fatalError("Unable to obtain MTLCommandQueue from MTLDevice") }
@@ -281,7 +284,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func updateAtlasInstanceData() {
         // For test: oscillate count between 0 and testMaxCount
-        let testMaxCount: Float = 100
+        let testMaxCount: Float = 1//100
         let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), atlasMaxInstanceCount - 1)
         
         var color = SIMD4<Float>.zero
@@ -311,7 +314,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func drawPrimitives() {
         // TEST: Draw many primitive circles
-        let circleCount = 1000
+        let circleCount = 1//1000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         var color = SIMD4<Float>.zero
         
@@ -410,6 +413,21 @@ class Renderer: NSObject, MTKViewDelegate {
                                            vertexCount: primitiveSquareVertices.count,
                                            instanceCount: primitiveInstanceCount)
                 }
+                
+                // MARK: - TEXT RENDERING
+                let now = Date().timeIntervalSince1970
+                let text = "Hello, SDF World! \(Int(now))"
+                let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
+                
+                // TODO: Maybe need to pass in the encoder here instead.
+                textRenderer.draw(
+                    text: text,
+                    at: [-Float(screenSize.width / 2.0) + 50, Float(screenSize.height / 2.0) - 100],      // X, Y position
+                    withSize: 48,       // Font size in points/pixels
+                    color: color,
+                    projectionMatrix: projectionMatrix,
+                    on: encoder
+                )
                 
                 encoder.endEncoding()
                 if let drawable = view.currentDrawable {

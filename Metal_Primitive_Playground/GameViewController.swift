@@ -27,11 +27,13 @@ class GameViewController: NSViewController {
             print("Metal is not supported on this device")
             return
         }
+        let textRenderer = TextRenderer(device: defaultDevice, fontName: "roboto")
 
         mtkView.device = defaultDevice
-        renderer = Renderer(mtkView: mtkView)
+        renderer = Renderer(mtkView: mtkView, textRenderer: textRenderer)
         renderer.mtkView(mtkView, drawableSizeWillChange: mtkView.drawableSize)
-
+        
         mtkView.delegate = renderer
+        
     }
 }
