@@ -423,7 +423,7 @@ class Renderer: NSObject, MTKViewDelegate {
                 textRenderer.draw(
                     text: text,
                     at: [-Float(screenSize.width / 2.0) + 50, Float(screenSize.height / 2.0) - 100],      // X, Y position
-                    withSize: 48,       // Font size in points/pixels
+                    withSize: 96,       // Font size in points/pixels
                     color: color,
                     projectionMatrix: projectionMatrix,
                     on: encoder

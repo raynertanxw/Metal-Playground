@@ -41,55 +41,25 @@ float median(float r, float g, float b) {
 }
 
 fragment float4 text_fragment_shader(VertexOut in [[stage_in]],
-                                      texture2d<float> sdf_texture [[texture(0)]],
-                                      constant float4 &text_color [[buffer(0)]])
+                                      texture2d<float> sdfTexture [[texture(0)]],
+                                      constant float4 &textColor [[buffer(0)]])
 {
-    constexpr sampler tex_sampler(min_filter::linear, mag_filter::linear);
+    constexpr sampler texSampler(min_filter::linear, mag_filter::linear);
 
-    // Sample the MSDF texture.
-    float4 sample = sdf_texture.sample(tex_sampler, in.texCoord);
+    float3 msdf = sdfTexture.sample(texSampler, in.texCoord).rgb;
+    float sd = median(msdf.r, msdf.g, msdf.b);
 
-    // Find the median of the R, G, and B channels to get the signed distance.
-    float sd = median(sample.r, sample.g, sample.b);
+    float sdfPixelRange = 8.0; // match the '-pxrange 8' from atlas generator
+    float screenPxRange = max(fwidth(sd), 1e-4); // Prevent divide-by-zero or zero smoothing
     
-    // --- The Core SDF Rendering Logic ---
-    // `screen_px_range` defines how "soft" the edge is.
-    // `fwidth` calculates the change in distance across a pixel, making the
-    // anti-aliasing resolution-independent.
-    float screen_px_range = fwidth(sd);
+    float edgeOffset = screenPxRange / sdfPixelRange;
+    float bias = -0.03;
     
-    // `smoothstep` creates a smooth transition from 0 to 1.
-    // We want the text to be opaque (alpha=1) when the distance `sd` is
-    // greater than 0.5, and transparent (alpha=0) otherwise.
-    // The transition happens over a range defined by `screen_px_range`.
-    float opacity = clamp(smoothstep(0.5 - screen_px_range, 0.5 + screen_px_range, sd), 0.0, 1.0);
-
-    // Final color is the text color multiplied by the calculated opacity.
-    // The `premultipliedAlpha` blending on the pipeline will handle the rest.
-    return float4(text_color.rgb * opacity, text_color.a * opacity);
+    float alpha = smoothstep(0.5 + bias - edgeOffset, 0.5 + bias + edgeOffset, sd);
+    return float4(textColor.rgb * alpha, textColor.a * alpha);
     
-    /*
-    // --- ADVANCED EFFECTS (Examples) ---
     
-    // 1. Outline
-    float outline_width = 0.1; // 10% of the font size
-    float outline_smoothing = screen_px_range * 2.0;
-    float4 outline_color = float4(0.0, 0.0, 0.0, 1.0);
-    float outline_factor = smoothstep(0.5 - outline_width - outline_smoothing, 0.5 - outline_width, sd);
-    
-    float4 final_color = mix(outline_color, text_color, opacity);
-    return float4(final_color.rgb, (text_color.a * opacity) + (outline_color.a * (outline_factor - opacity)));
-    
-    // 2. Soft Shadow
-    float shadow_offset = 0.05;
-    float shadow_softness = 0.1;
-    float4 shadow_color = float4(0.0, 0.0, 0.0, 0.5);
-    float shadow_sd = median(sdf_texture.sample(tex_sampler, in.texCoord - shadow_offset).rgb);
-    float shadow_opacity = smoothstep(0.5 - shadow_softness, 0.5 + shadow_softness, shadow_sd);
-    
-    float4 final_color = mix(shadow_color, text_color, opacity);
-    return float4(final_color.rgb, max(opacity, shadow_opacity * shadow_color.a));
-    */
+    // TODO: Possible future features such as outline and drop shadow.
 }
 
 
