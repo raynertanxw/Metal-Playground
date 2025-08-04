@@ -7,86 +7,26 @@
 
 import MetalKit
 
-// MARK: - Font Atlas Structs
-struct FontAtlas: Codable {
-    let atlas: AtlasMetrics
-    let metrics: FontMetrics
-    let glyphs: [Glyph]
-    let kerning: [Kerning]
-}
-
-struct AtlasMetrics: Codable {
-    let type: String
-    let distanceRange: Double
-    let size: Double
-    let width: Int
-    let height: Int
-    let yOrigin: String
-}
-
-struct FontMetrics: Codable {
-    let emSize: Double
-    let lineHeight: Double
-    let ascender: Double
-    let descender: Double
-    let underlineY: Double
-    let underlineThickness: Double
-}
-
-struct Glyph: Codable {
-    let unicode: Int
-    let advance: Double
-    let planeBounds: Bounds?
-    let atlasBounds: Bounds?
-}
-
-struct Bounds: Codable {
-    let left: Double
-    let bottom: Double
-    let right: Double
-    let top: Double
-}
-
-struct Kerning: Codable {
-    let unicode1: Int
-    let unicode2: Int
-    let advance: Double
-}
-
-
-// MARK: - Text Rendering Structs
-struct TextVertex {
-    var position: SIMD2<Float>
-    var uv: SIMD2<Float>
-}
-
-struct TextFragmentUniforms {
-    var textColor: SIMD4<Float>
-    var distanceRange: Float
-}
-
-
-// MARK: - TextRenderer
 class TextRenderer {
-    private let pipelineState: MTLRenderPipelineState
-    private let texture: MTLTexture
-    
-    // Font Data
+    private let fontTexture: MTLTexture
     private let fontAtlas: FontAtlas
-    private var glyphs = [UInt32: Glyph]()
-    private var kerning = [UInt64: Kerning]()
-
-    // Dynamic buffer for vertices
-    private var vertexBuffer: MTLBuffer!
-    private var vertexBufferCapacity: Int = 1024 * 6 // Initial capacity in number of characters (6 vertice per character)
+    private var fontGlyphs = [UInt32: Glyph]()
+    private var fontKerning = [UInt64: Kerning]()
     
+    private let textPipelineState: MTLRenderPipelineState
+    private var textTriVertexBuffer: MTLBuffer!
+    private let textMaxCharacters: Int = 4096
+    private let vertsPerChar: Int = 6
+    private var vertexBufferCapacity: Int
     private var textSamplerState: MTLSamplerState
 
     // MARK: - Initialization
     init(device: MTLDevice, fontName: String, pixelFormat: MTLPixelFormat) {
+        vertexBufferCapacity = textMaxCharacters * vertsPerChar
+        
         // 1. Load Font Atlas Data (JSON and PNG) and process data for quick lookups
-        (self.fontAtlas, self.texture) = Self.loadFontAtlas(device: device, fontName: fontName)
-        (self.glyphs, self.kerning) = Self.preprocessFontData(fontAtlas: fontAtlas)
+        (self.fontAtlas, self.fontTexture) = Self.loadFontAtlas(device: device, fontName: fontName)
+        (self.fontGlyphs, self.fontKerning) = Self.preprocessFontData(fontAtlas: fontAtlas)
         
         // 2. Create Metal Render Pipeline State
         let library = device.makeDefaultLibrary()!
@@ -128,14 +68,14 @@ class TextRenderer {
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
 
         do {
-            self.pipelineState = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+            self.textPipelineState = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
         } catch {
             fatalError("Failed to create text rendering pipeline state: \(error)")
         }
         
         // 3. Create initial (empty) vertex buffer
-        self.vertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
-        self.vertexBuffer.label = "Text Vertex Buffer"
+        self.textTriVertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
+        self.textTriVertexBuffer.label = "Text Vertex Buffer"
     }
 
     private static func loadFontAtlas(device: MTLDevice, fontName: String) -> (FontAtlas, MTLTexture) {
@@ -190,19 +130,19 @@ class TextRenderer {
         if vertices.count > vertexBufferCapacity { // grow buffer capacity if needed
             let numCharacters = vertices.count / 6
             vertexBufferCapacity = numCharacters.nextPowerOf2() * 6
-            vertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
+            textTriVertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
         }
-        vertexBuffer.contents().copyMemory(from: vertices, byteCount: vertices.count * MemoryLayout<TextVertex>.stride)
+        textTriVertexBuffer.contents().copyMemory(from: vertices, byteCount: vertices.count * MemoryLayout<TextVertex>.stride)
         
         // Get encoder to draw
-        encoder.setRenderPipelineState(pipelineState)
-        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: TextBufferIndex.vertices.rawValue)
+        encoder.setRenderPipelineState(textPipelineState)
+        encoder.setVertexBuffer(textTriVertexBuffer, offset: 0, index: TextBufferIndex.vertices.rawValue)
         var projectionMatrix = projectionMatrix
         encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
         
         var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
-        encoder.setFragmentTexture(texture, index: 0)
+        encoder.setFragmentTexture(fontTexture, index: 0)
         encoder.setFragmentSamplerState(textSamplerState, index: 0)
         
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
@@ -236,12 +176,12 @@ class TextRenderer {
             // Kerning
             if previousChar != 0 {
                 let key = (UInt64(previousChar) << 32) | UInt64(unicode)
-                if let kern = kerning[key] {
+                if let kern = fontKerning[key] {
                     cursorX += Float(kern.advance) * scale
                 }
             }
 
-            guard let glyph = glyphs[unicode],
+            guard let glyph = fontGlyphs[unicode],
                   let plane = glyph.planeBounds,
                   let atlas = glyph.atlasBounds else {
                 previousChar = unicode
@@ -302,12 +242,12 @@ class TextRenderer {
             
             if previousChar != 0 {
                 let key = (UInt64(previousChar) << 32) | UInt64(unicode)
-                if let kern = kerning[key] {
+                if let kern = fontKerning[key] {
                     cursorX += Float(kern.advance) * scale
                 }
             }
             
-            guard let glyph = glyphs[unicode],
+            guard let glyph = fontGlyphs[unicode],
                   let plane = glyph.planeBounds else {
                 previousChar = unicode
                 continue
@@ -326,16 +266,4 @@ class TextRenderer {
     }
 }
 
-// Helper to get next power of two for buffer resizing
-extension Int {
-    func nextPowerOf2() -> Int {
-        var n = self - 1
-        n |= n >> 1
-        n |= n >> 2
-        n |= n >> 4
-        n |= n >> 8
-        n |= n >> 16
-        n |= n >> 32 // for 64-bit
-        return n + 1
-    }
-}
+

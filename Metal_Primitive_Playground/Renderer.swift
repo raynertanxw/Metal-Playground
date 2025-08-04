@@ -7,6 +7,7 @@
 
 import MetalKit
 
+// MARK: - Pipeline Structs
 struct AtlasVertex {
     var position: SIMD2<Float>
     var uv: SIMD2<Float>
@@ -39,8 +40,18 @@ struct PrimitiveInstanceData {
     var sdfParams: SIMD4<Float>
 }
 
-let maxBuffersInFlight = 3
+struct TextVertex {
+    var position: SIMD2<Float>
+    var uv: SIMD2<Float>
+}
 
+struct TextFragmentUniforms {
+    var textColor: SIMD4<Float>
+    var distanceRange: Float
+}
+
+
+// MARK: - Renderer Class
 class Renderer: NSObject, MTKViewDelegate {
     var projectionMatrix = matrix_identity_float4x4
     var screenSize: CGSize = .zero
@@ -49,7 +60,8 @@ class Renderer: NSObject, MTKViewDelegate {
     let commandQueue: MTLCommandQueue
     var textRenderer: TextRenderer!
 
-    let inFlightSemaphore = DispatchSemaphore(value: maxBuffersInFlight)
+    static let maxBuffersInFlight = 3
+    let inFlightSemaphore: DispatchSemaphore
     var triBufferIndex = 0
     
     // MARK: - ATLAS PIPELINE VARS
@@ -98,6 +110,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var time: Float = 0
     
     init(mtkView: MTKView, textRenderer: TextRenderer) {
+        self.inFlightSemaphore = DispatchSemaphore(value: Self.maxBuffersInFlight)
         self.textRenderer = textRenderer
         
         guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
@@ -106,61 +119,67 @@ class Renderer: NSObject, MTKViewDelegate {
         self.commandQueue = cmdQueue
         
         // MARK: - Build Atlas Buffers
+        (self.atlasVertexBuffer, self.atlasTriInstanceBuffer) = Self.buildAtlasBuffers(device: device, vertices: atlasSquareVertices, maxCount: atlasMaxInstanceCount)
+        self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
+
+        // MARK: - Build Primitive Buffers
+        (self.primitiveVertexBuffer, self.primitiveTriInstanceBuffer) = Self.buildPrimitiveBuffers(device: device, vertices: primitiveSquareVertices, maxCount: primitiveMaxInstanceCount)
+        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()) .bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+        
+        // MARK: - Build Pipelines & Descriptors & Misc
+        (self.atlasPipelineState, self.atlasSamplerState) = Self.buildAtlasPipeline(device: device, mtkView: mtkView)
+        self.primitivePipelineState = Self.buildPrimitivePipeline(device: device, mtkView: mtkView)
+        
+        // MARK: - Load Textures
+        self.mainAtlasTexture = Renderer.loadTexture(device: device, name: "main_atlas")
+        self.mainAtlasUVRects = Renderer.loadAtlasUV(named: "main_atlas", textureWidth: 256, textureHeight: 256)
+        
+        super.init()
+    }
+    
+    class func buildAtlasBuffers(device: MTLDevice, vertices atlasSquareVertices: [AtlasVertex], maxCount atlasMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
         guard let atlasVertexBuffer = device.makeBuffer(
             bytes: atlasSquareVertices,
             length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
             options: []) else { fatalError("Unable to create vertex buffer for atlas") }
-        self.atlasVertexBuffer = atlasVertexBuffer
+        atlasVertexBuffer.label = "Atlas Square Vertex Buffer"
         
         let atlasTriInstanceBufferSize = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * maxBuffersInFlight
         guard let atlasTriInstanceBuffer = device.makeBuffer(
             length: atlasTriInstanceBufferSize,
             options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for atlas") }
-        self.atlasTriInstanceBuffer = atlasTriInstanceBuffer
-        self.atlasTriInstanceBuffer.label = "Atlas Tri Instance Buffer"
+        atlasTriInstanceBuffer.label = "Atlas Tri Instance Buffer"
         
-        self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents())
-            .bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
-        
-        // MARK: - Build Primitive Buffers
+        return (atlasVertexBuffer, atlasTriInstanceBuffer)
+    }
+    
+    class func buildPrimitiveBuffers(device: MTLDevice, vertices primitiveSquareVertices: [PrimitiveVertex], maxCount primitiveMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
         guard let primitiveVertexBuffer = device.makeBuffer(
             bytes: primitiveSquareVertices,
             length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
             options: []) else { fatalError("Unabled to create vertex buffer for primitives") }
-        self.primitiveVertexBuffer = primitiveVertexBuffer
+        primitiveVertexBuffer.label = "Primitive Square Vertex Buffer"
         
         let primitiveTriInstanceBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
         guard let primitiveTriInstanceBuffer = device.makeBuffer(
             length: primitiveTriInstanceBufferSize,
             options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for primitives") }
-        self.primitiveTriInstanceBuffer = primitiveTriInstanceBuffer
-        self.primitiveTriInstanceBuffer.label = "Primitive Tri Instance Buffer"
+        primitiveTriInstanceBuffer.label = "Primitive Tri Instance Buffer"
         
-        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents())
-            .bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
-        
-        // MARK: - Build Pipelines & Descriptors & Misc
-        self.atlasPipelineState = Renderer.buildAtlasPipeline(device: device, mtkView: mtkView)
-        self.primitivePipelineState = Renderer.buildPrimitivePipeline(device: device, mtkView: mtkView)
-        let atlasSamplerDescriptor = MTLSamplerDescriptor()
-        atlasSamplerDescriptor.minFilter = .linear
-        atlasSamplerDescriptor.magFilter = .linear
-        atlasSamplerDescriptor.mipFilter = .linear
-        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unabled to create atlas sampler state") }
-        self.atlasSamplerState = atlasSamplerState
-        
-        
-        super.init()
-        
-        // MARK: - Load Textures
-        let texture = loadTexture(device: device, name: "main_atlas")
-        self.mainAtlasTexture = texture
-        
-        let atlasUVs = loadAtlasUV(named: "main_atlas", textureWidth: 256, textureHeight: 256)
-        self.mainAtlasUVRects = atlasUVs
+        return (primitiveVertexBuffer, primitiveTriInstanceBuffer)
     }
     
-    class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
+    private func updateTriBufferStates() {
+        triBufferIndex = (triBufferIndex + 1) % Self.maxBuffersInFlight
+        
+        atlasTriInstanceBufferOffset = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * triBufferIndex
+        atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).advanced(by: atlasTriInstanceBufferOffset).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
+        
+        primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
+        primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+    }
+    
+    class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
@@ -202,7 +221,14 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let atlasPipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
             fatalError("Unable to create render pipeline state")
         }
-        return atlasPipelineState
+        
+        let atlasSamplerDescriptor = MTLSamplerDescriptor()
+        atlasSamplerDescriptor.minFilter = .linear
+        atlasSamplerDescriptor.magFilter = .linear
+        atlasSamplerDescriptor.mipFilter = .linear
+        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unabled to create atlas sampler state") }
+
+        return (atlasPipelineState, atlasSamplerState)
     }
     
     class func buildPrimitivePipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
@@ -231,17 +257,7 @@ class Renderer: NSObject, MTKViewDelegate {
         return primitivePipelineState
     }
     
-    private func updateTriBufferStates() {
-        triBufferIndex = (triBufferIndex + 1) % maxBuffersInFlight
-        
-        atlasTriInstanceBufferOffset = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * triBufferIndex
-        atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).advanced(by: atlasTriInstanceBufferOffset).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
-        
-        primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
-        primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
-    }
-    
-    func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
+    class func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
         let textureLoader = MTKTextureLoader(device: device)
         let url = Bundle.main.url(forResource: name, withExtension: "png")!
         let options: [MTKTextureLoader.Option: Any] = [.SRGB: false]
@@ -253,7 +269,7 @@ class Renderer: NSObject, MTKViewDelegate {
         }
     }
     
-    func loadAtlasUV(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: AtlasUVRect] {
+    class func loadAtlasUV(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: AtlasUVRect] {
         guard let url = Bundle.main.url(forResource: filename, withExtension: "txt") else {
             fatalError("Atlas file not found.")
         }
@@ -637,4 +653,63 @@ extension float4x4 {
             SIMD4<Float>(     0,      0, 0, 1)
         ))
     }
+}
+
+extension Int {
+    func nextPowerOf2() -> Int {
+        var n = self - 1
+        n |= n >> 1
+        n |= n >> 2
+        n |= n >> 4
+        n |= n >> 8
+        n |= n >> 16
+        n |= n >> 32 // for 64-bit
+        return n + 1
+    }
+}
+
+// MARK: - Font Atlas Structs
+struct FontAtlas: Codable {
+    let atlas: AtlasMetrics
+    let metrics: FontMetrics
+    let glyphs: [Glyph]
+    let kerning: [Kerning]
+}
+
+struct AtlasMetrics: Codable {
+    let type: String
+    let distanceRange: Double
+    let size: Double
+    let width: Int
+    let height: Int
+    let yOrigin: String
+}
+
+struct FontMetrics: Codable {
+    let emSize: Double
+    let lineHeight: Double
+    let ascender: Double
+    let descender: Double
+    let underlineY: Double
+    let underlineThickness: Double
+}
+
+struct Glyph: Codable {
+    let unicode: Int
+    let advance: Double
+    let planeBounds: Bounds?
+    let atlasBounds: Bounds?
+}
+
+struct Bounds: Codable {
+    let left: Double
+    let bottom: Double
+    let right: Double
+    let top: Double
+}
+
+struct Kerning: Codable {
+    let unicode1: Int
+    let unicode2: Int
+    let advance: Double
 }
