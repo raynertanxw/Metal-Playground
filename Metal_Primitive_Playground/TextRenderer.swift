@@ -200,19 +200,26 @@ class TextRenderer {
     // MARK: - Mesh Generation
     private func buildMesh(for text: String, at origin: SIMD2<Float>, withSize fontSize: Float) -> [TextVertex] {
         var vertices: [TextVertex] = []
-        var cursorX = origin.x
-        let cursorY = origin.y
-
         let scale = fontSize
         let atlasWidth = Float(fontAtlas.atlas.width)
         let atlasHeight = Float(fontAtlas.atlas.height)
+        let lineHeight = fontSize * 1.25 // Tune this as needed
 
+        var cursorX = origin.x
+        var cursorY = origin.y
         var previousChar: UInt32 = 0
 
         for char in text.unicodeScalars {
+            if char == "\n" {
+                cursorX = origin.x
+                cursorY -= lineHeight
+                previousChar = 0
+                continue
+            }
+
             let unicode = char.value
 
-            // Apply kerning
+            // Kerning
             if previousChar != 0 {
                 let key = (UInt64(previousChar) << 32) | UInt64(unicode)
                 if let kern = kerning[key] {
@@ -227,19 +234,16 @@ class TextRenderer {
                 continue
             }
 
-            // Vertex positions
             let x0 = cursorX + Float(plane.left) * scale
             let y0 = cursorY + Float(plane.bottom) * scale
             let x1 = cursorX + Float(plane.right) * scale
             let y1 = cursorY + Float(plane.top) * scale
 
-            // UVs (flip Y)
             let u0 = Float(atlas.left) / atlasWidth
             let u1 = Float(atlas.right) / atlasWidth
             let v0 = Float(atlasHeight - Float(atlas.top)) / atlasHeight
             let v1 = Float(atlasHeight - Float(atlas.bottom)) / atlasHeight
 
-            // Quad verts
             let topLeft     = TextVertex(position: [x0, y1], texCoord: [u0, v0])
             let topRight    = TextVertex(position: [x1, y1], texCoord: [u1, v0])
             let bottomLeft  = TextVertex(position: [x0, y0], texCoord: [u0, v1])
@@ -256,22 +260,33 @@ class TextRenderer {
 
         return vertices
     }
+
     
     // MARK: - MEASURE TEXT
     func measureTextBounds(for text: String, withSize fontSize: Float) -> (minX: Float, maxX: Float, minY: Float, maxY: Float) {
+        let scale = fontSize
+        let lineHeight = fontSize * 1.25
+
         var cursorX: Float = 0
+        var cursorY: Float = 0
+
         var minX = Float.greatestFiniteMagnitude
         var maxX = -Float.greatestFiniteMagnitude
         var minY = Float.greatestFiniteMagnitude
         var maxY = -Float.greatestFiniteMagnitude
 
-        let scale = fontSize
         var previousChar: UInt32 = 0
 
         for char in text.unicodeScalars {
+            if char == "\n" {
+                cursorX = 0
+                cursorY -= lineHeight
+                previousChar = 0
+                continue
+            }
+
             let unicode = char.value
 
-            // Apply kerning
             if previousChar != 0 {
                 let key = (UInt64(previousChar) << 32) | UInt64(unicode)
                 if let kern = kerning[key] {
@@ -287,8 +302,8 @@ class TextRenderer {
 
             let x0 = cursorX + Float(plane.left) * scale
             let x1 = cursorX + Float(plane.right) * scale
-            let y0 = Float(plane.bottom) * scale
-            let y1 = Float(plane.top) * scale
+            let y0 = cursorY + Float(plane.bottom) * scale
+            let y1 = cursorY + Float(plane.top) * scale
 
             minX = min(minX, x0)
             maxX = max(maxX, x1)
@@ -299,14 +314,13 @@ class TextRenderer {
             previousChar = unicode
         }
 
-        // In case no glyphs were valid
+        // Empty fallback
         if minX == Float.greatestFiniteMagnitude {
             return (0, 0, 0, 0)
         }
 
         return (minX, maxX, minY, maxY)
     }
-
 }
 
 // Helper to get next power of two for buffer resizing
