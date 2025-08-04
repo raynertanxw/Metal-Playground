@@ -58,7 +58,6 @@ class Renderer: NSObject, MTKViewDelegate {
     
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
-    var textRenderer: TextRenderer!
 
     static let maxBuffersInFlight = 3
     let inFlightSemaphore: DispatchSemaphore
@@ -106,38 +105,63 @@ class Renderer: NSObject, MTKViewDelegate {
     var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
     
     
+    
+    // MARK: - TEXT PIPELINE VARS
+    private let fontTexture: MTLTexture
+    private let fontAtlas: FontAtlas
+    private var fontGlyphs = [UInt32: Glyph]()
+    private var fontKerning = [UInt64: Kerning]()
+    
+    private let textPipelineState: MTLRenderPipelineState
+    private var textTriVertexBuffer: MTLBuffer!
+    private let textVertexBufferMaxCapacity: Int = 4096 * 6
+    private var textSamplerState: MTLSamplerState
+    // TODO: text vertexBufferCount + textVertexBufferPtr
+    
+    
+    
+    
     // MARK: - GAME RELATED
     var time: Float = 0
     
-    init(mtkView: MTKView, textRenderer: TextRenderer) {
+    // MARK: - INIT
+    init(mtkView: MTKView) {
         self.inFlightSemaphore = DispatchSemaphore(value: Self.maxBuffersInFlight)
-        self.textRenderer = textRenderer
         
         guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
         self.device = device
         guard let cmdQueue = device.makeCommandQueue() else { fatalError("Unable to obtain MTLCommandQueue from MTLDevice") }
         self.commandQueue = cmdQueue
         
-        // MARK: - Build Atlas Buffers
+        // Build Atlas Buffers
         (self.atlasVertexBuffer, self.atlasTriInstanceBuffer) = Self.buildAtlasBuffers(device: device, vertices: atlasSquareVertices, maxCount: atlasMaxInstanceCount)
         self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
 
-        // MARK: - Build Primitive Buffers
+        // Build Primitive Buffers
         (self.primitiveVertexBuffer, self.primitiveTriInstanceBuffer) = Self.buildPrimitiveBuffers(device: device, vertices: primitiveSquareVertices, maxCount: primitiveMaxInstanceCount)
         self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()) .bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
         
-        // MARK: - Build Pipelines & Descriptors & Misc
+        // Build Text Buffers
+        self.textTriVertexBuffer = Self.buildTextBuffers(device: device, maxSize:   textVertexBufferMaxCapacity)
+        // TODO: Bind textTriBertexBufferPtr
+
+        // Build Pipelines & Descriptors & Misc
         (self.atlasPipelineState, self.atlasSamplerState) = Self.buildAtlasPipeline(device: device, mtkView: mtkView)
         self.primitivePipelineState = Self.buildPrimitivePipeline(device: device, mtkView: mtkView)
+        (self.textPipelineState, self.textSamplerState) = Self.buildTextPipeline(device: device, mtkView: mtkView)
         
-        // MARK: - Load Textures
+        // Load Textures & Fonts
         self.mainAtlasTexture = Renderer.loadTexture(device: device, name: "main_atlas")
         self.mainAtlasUVRects = Renderer.loadAtlasUV(named: "main_atlas", textureWidth: 256, textureHeight: 256)
+        let fontName = "roboto"
+        (self.fontAtlas, self.fontTexture) = Self.loadFontAtlas(device: device, fontName: fontName)
+        (self.fontGlyphs, self.fontKerning) = Self.preprocessFontData(fontAtlas: fontAtlas)
+
         
         super.init()
     }
     
-    class func buildAtlasBuffers(device: MTLDevice, vertices atlasSquareVertices: [AtlasVertex], maxCount atlasMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
+    private class func buildAtlasBuffers(device: MTLDevice, vertices atlasSquareVertices: [AtlasVertex], maxCount atlasMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
         guard let atlasVertexBuffer = device.makeBuffer(
             bytes: atlasSquareVertices,
             length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
@@ -153,11 +177,11 @@ class Renderer: NSObject, MTKViewDelegate {
         return (atlasVertexBuffer, atlasTriInstanceBuffer)
     }
     
-    class func buildPrimitiveBuffers(device: MTLDevice, vertices primitiveSquareVertices: [PrimitiveVertex], maxCount primitiveMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
+    private class func buildPrimitiveBuffers(device: MTLDevice, vertices primitiveSquareVertices: [PrimitiveVertex], maxCount primitiveMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
         guard let primitiveVertexBuffer = device.makeBuffer(
             bytes: primitiveSquareVertices,
             length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
-            options: []) else { fatalError("Unabled to create vertex buffer for primitives") }
+            options: []) else { fatalError("Unable to create vertex buffer for primitives") }
         primitiveVertexBuffer.label = "Primitive Square Vertex Buffer"
         
         let primitiveTriInstanceBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
@@ -169,6 +193,16 @@ class Renderer: NSObject, MTKViewDelegate {
         return (primitiveVertexBuffer, primitiveTriInstanceBuffer)
     }
     
+    private class func buildTextBuffers(device: MTLDevice, maxSize vertexBufferCapacity: Int) -> (MTLBuffer) {
+        // TODO: Make this actual tri buffer
+        guard let textTriVertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared) else {
+            fatalError("Unable to create vertex buffer for text")
+        }
+        textTriVertexBuffer.label = "Text Tri Vertex Buffer"
+        
+        return textTriVertexBuffer
+    }
+    
     private func updateTriBufferStates() {
         triBufferIndex = (triBufferIndex + 1) % Self.maxBuffersInFlight
         
@@ -177,12 +211,12 @@ class Renderer: NSObject, MTKViewDelegate {
         
         primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
         primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+        
+        // TODO: Update with TextTriBuffer
     }
     
-    class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
-        guard let library = device.makeDefaultLibrary() else {
-            fatalError("Unable to get default library")
-        }
+    private class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
+        guard let library = device.makeDefaultLibrary() else { fatalError("Unable to get default library") }
         
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_atlas")
@@ -199,7 +233,7 @@ class Renderer: NSObject, MTKViewDelegate {
         colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
         colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
         
-        // MARK: - VERTEX DESCRIPTOR
+        // Vertex Descriptor
         let vertexDescriptor = MTLVertexDescriptor()
         
         // Position
@@ -219,19 +253,19 @@ class Renderer: NSObject, MTKViewDelegate {
         
         
         guard let atlasPipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
-            fatalError("Unable to create render pipeline state")
+            fatalError("Unable to create atlas pipeline state")
         }
         
         let atlasSamplerDescriptor = MTLSamplerDescriptor()
         atlasSamplerDescriptor.minFilter = .linear
         atlasSamplerDescriptor.magFilter = .linear
         atlasSamplerDescriptor.mipFilter = .linear
-        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unabled to create atlas sampler state") }
+        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unable to create atlas sampler state") }
 
         return (atlasPipelineState, atlasSamplerState)
     }
     
-    class func buildPrimitivePipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
+    private class func buildPrimitivePipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
@@ -252,12 +286,60 @@ class Renderer: NSObject, MTKViewDelegate {
         colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
         
         guard let primitivePipelineState = try? device.makeRenderPipelineState(descriptor: primitivePipelineDescriptor) else {
-            fatalError("Unable to create render pipeline state")
+            fatalError("Unable to create primitive pipeline state")
         }
         return primitivePipelineState
     }
     
-    class func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
+    private class func buildTextPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
+        guard let library = device.makeDefaultLibrary() else { fatalError("Unable to get default library") }
+
+        let pipelineDescriptor = MTLRenderPipelineDescriptor()
+        pipelineDescriptor.vertexFunction = library.makeFunction(name: "text_vertex_shader")
+        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "text_fragment_shader")        
+                
+        // Enable alpha blending
+        let colorAttachment = pipelineDescriptor.colorAttachments[0]!
+        colorAttachment.pixelFormat = mtkView.colorPixelFormat
+        colorAttachment.isBlendingEnabled = true
+        colorAttachment.rgbBlendOperation = .add
+        colorAttachment.alphaBlendOperation = .add
+        colorAttachment.sourceRGBBlendFactor = .sourceAlpha
+        colorAttachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+        colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
+        colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
+        // Vertex Descriptor
+        let vertexDescriptor = MTLVertexDescriptor()
+        
+        // Position
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].format = .float2 // position
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].offset = 0
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
+        
+        // UV
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].format = .float2 // uv
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].offset = MemoryLayout<SIMD2<Float>>.stride
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
+        
+        vertexDescriptor.layouts[0].stride = MemoryLayout<TextVertex>.stride
+        vertexDescriptor.layouts[0].stepFunction = .perVertex
+        pipelineDescriptor.vertexDescriptor = vertexDescriptor
+
+        guard let textPipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
+            fatalError("Unable to create text pipeline state")
+        }
+        
+        let textSamplerDescriptor = MTLSamplerDescriptor()
+        textSamplerDescriptor.minFilter = .linear
+        textSamplerDescriptor.magFilter = .linear
+        textSamplerDescriptor.mipFilter = .linear
+        guard let textSamplerState = device.makeSamplerState(descriptor: textSamplerDescriptor) else { fatalError("Unabled to create text sampler state") }
+        
+        return (textPipelineState, textSamplerState)
+    }
+    
+    private class func loadTexture(device: MTLDevice, name: String) -> MTLTexture {
         let textureLoader = MTKTextureLoader(device: device)
         let url = Bundle.main.url(forResource: name, withExtension: "png")!
         let options: [MTKTextureLoader.Option: Any] = [.SRGB: false]
@@ -269,7 +351,7 @@ class Renderer: NSObject, MTKViewDelegate {
         }
     }
     
-    class func loadAtlasUV(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: AtlasUVRect] {
+    private class func loadAtlasUV(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: AtlasUVRect] {
         guard let url = Bundle.main.url(forResource: filename, withExtension: "txt") else {
             fatalError("Atlas file not found.")
         }
@@ -296,6 +378,40 @@ class Renderer: NSObject, MTKViewDelegate {
         }
         
         return atlasUV
+    }
+    
+    private class func loadFontAtlas(device: MTLDevice, fontName: String) -> (FontAtlas, MTLTexture) {
+        // Load JSON
+        guard let jsonURL = Bundle.main.url(forResource: fontName, withExtension: "json") else {
+            fatalError("Font atlas JSON file not found: \(fontName).json")
+        }
+        let jsonData = try! Data(contentsOf: jsonURL)
+        let fontAtlas = try! JSONDecoder().decode(FontAtlas.self, from: jsonData)
+        
+        // Load PNG Texture
+        let textureLoader = MTKTextureLoader(device: device)
+        guard let textureURL = Bundle.main.url(forResource: fontName, withExtension: "png") else {
+            fatalError("Font atlas texture not found: \(fontName).png")
+        }
+        let texture = try! textureLoader.newTexture(URL: textureURL, options: nil)
+        
+        return (fontAtlas, texture)
+    }
+    
+    private class func preprocessFontData(fontAtlas: FontAtlas) -> ([UInt32: Glyph], [UInt64: Kerning]) {
+        var glyphs = [UInt32: Glyph]()
+        var kerning = [UInt64: Kerning]()
+        
+        for glyph in fontAtlas.glyphs {
+            glyphs[UInt32(glyph.unicode)] = glyph
+        }
+        for kern in fontAtlas.kerning {
+            // Combine the two unicode values into a single key for dictionary lookup
+            let key = (UInt64(kern.unicode1) << 32) | UInt64(kern.unicode2)
+            kerning[key] = kern
+        }
+        
+        return (glyphs, kerning)
     }
     
     func updateAtlasInstanceData() {
@@ -376,6 +492,21 @@ class Renderer: NSObject, MTKViewDelegate {
         
         updateAtlasInstanceData()
         drawPrimitives()
+        
+        // Testing for text bounds checking
+        let fontSize: Float = 96
+        let now = Date().timeIntervalSince1970
+        let text = "Hello, SDF World!\n\n\(Int(now))"
+        let textBounds = measureTextBounds(for: text, withSize: fontSize)
+        drawPrimitiveRect(
+            x: -Float(textBounds.width / 2.0),
+            y: -(textBounds.height / 2.0),
+            width: textBounds.width,
+            height: textBounds.height,
+            color: SIMD4<Float>(0,1.0,1.0,0.25))
+        drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
+                            y: Float(textBounds.height / 2.0),
+                            radius: 16, color: SIMD4<Float>.one)
     }
     
     // MARK: - DRAW FUNCTION
@@ -418,24 +549,6 @@ class Renderer: NSObject, MTKViewDelegate {
                                            instanceCount: atlasInstanceCount)
                 }
                 
-                
-                { // Testing for text bounds checking
-                    let fontSize: Float = 96
-                    let now = Date().timeIntervalSince1970
-                    let text = "Hello, SDF World!\n\n\(Int(now))"
-                    let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
-                    drawPrimitiveRect(
-                        x: -Float(textBounds.width / 2.0),
-                        y: -(textBounds.height / 2.0),
-                        width: textBounds.width,
-                        height: textBounds.height,
-                        color: SIMD4<Float>(0,1.0,1.0,0.25))
-                    drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
-                                        y: Float(textBounds.height / 2.0),
-                                        radius: 16, color: SIMD4<Float>.one)
-                }()
-
-
                 // MARK: - PRIMITIVE PIPELINE
                 if primitiveInstanceCount > 0 { // Only do if there are primitives to draw
                     encoder.setRenderPipelineState(primitivePipelineState)
@@ -454,8 +567,8 @@ class Renderer: NSObject, MTKViewDelegate {
                 let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
                 
                 let fontSize: Float = 96
-                let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
-                textRenderer.draw(
+                let textBounds = measureTextBounds(for: text, withSize: fontSize)
+                drawText(
                     text: text,
                     at: [-Float(textBounds.width / 2.0),
                           Float(textBounds.height / 2.0)],      // X, Y position
@@ -611,6 +724,153 @@ class Renderer: NSObject, MTKViewDelegate {
         )
         primitiveInstanceCount += 1
     }
+    
+    // MARK: - Text Drawing Functions
+    func drawText(text: String,
+                  at position: SIMD2<Float>,
+                  fontSize: Float,
+                  color: SIMD4<Float>,
+                  projectionMatrix: simd_float4x4,
+                  device: MTLDevice,
+                  encoder: MTLRenderCommandEncoder) {
+        
+        // TODO: Assert precondition that not beyond certain point in text.
+        guard !text.isEmpty else { return }
+        
+        // Build text vertices
+        let vertices = buildMesh(for: text, at: position, withSize: fontSize)
+        guard !vertices.isEmpty else { return }
+        
+        textTriVertexBuffer.contents().copyMemory(from: vertices, byteCount: vertices.count * MemoryLayout<TextVertex>.stride)
+        
+        // Get encoder to draw
+        encoder.setRenderPipelineState(textPipelineState)
+        encoder.setVertexBuffer(textTriVertexBuffer, offset: 0, index: TextBufferIndex.vertices.rawValue)
+        var projectionMatrix = projectionMatrix
+        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
+        
+        var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
+        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
+        encoder.setFragmentTexture(fontTexture, index: 0)
+        encoder.setFragmentSamplerState(textSamplerState, index: 0)
+        
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
+    }
+
+    
+    private func buildMesh(for text: String, at origin: SIMD2<Float>, withSize fontSize: Float) -> [TextVertex] {
+        var vertices: [TextVertex] = []
+        let atlasWidth = Float(fontAtlas.atlas.width)
+        let atlasHeight = Float(fontAtlas.atlas.height)
+        
+        let scale = Float(fontSize) / Float(fontAtlas.metrics.emSize)
+        let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
+        let ascender = Float(fontAtlas.metrics.ascender) * scale
+        
+        var cursorX = origin.x
+        var cursorY = origin.y - ascender // shift down so top of first line is at origin.y
+        
+        var previousChar: UInt32 = 0
+        
+        for char in text.unicodeScalars {
+            if char == "\n" {
+                cursorX = origin.x
+                cursorY -= lineHeight
+                previousChar = 0
+                continue
+            }
+            
+            let unicode = char.value
+            
+            // Kerning
+            if previousChar != 0 {
+                let key = (UInt64(previousChar) << 32) | UInt64(unicode)
+                if let kern = fontKerning[key] {
+                    cursorX += Float(kern.advance) * scale
+                }
+            }
+            
+            guard let glyph = fontGlyphs[unicode],
+                  let plane = glyph.planeBounds,
+                  let atlas = glyph.atlasBounds else {
+                previousChar = unicode
+                continue
+            }
+            
+            let x0 = cursorX + Float(plane.left) * scale
+            let y0 = cursorY + Float(plane.bottom) * scale
+            let x1 = cursorX + Float(plane.right) * scale
+            let y1 = cursorY + Float(plane.top) * scale
+            
+            let u0 = Float(atlas.left) / atlasWidth
+            let u1 = Float(atlas.right) / atlasWidth
+            let v0 = Float(atlasHeight - Float(atlas.top)) / atlasHeight
+            let v1 = Float(atlasHeight - Float(atlas.bottom)) / atlasHeight
+            
+            let topLeft     = TextVertex(position: [x0, y1], uv: [u0, v0])
+            let topRight    = TextVertex(position: [x1, y1], uv: [u1, v0])
+            let bottomLeft  = TextVertex(position: [x0, y0], uv: [u0, v1])
+            let bottomRight = TextVertex(position: [x1, y0], uv: [u1, v1])
+            
+            vertices.append(contentsOf: [
+                bottomLeft, bottomRight, topRight,
+                bottomLeft, topRight, topLeft
+            ])
+            
+            cursorX += Float(glyph.advance) * scale
+            previousChar = unicode
+        }
+        
+        return vertices
+    }
+    
+    func measureTextBounds(for text: String, withSize fontSize: Float) -> (width: Float, height: Float) {
+        let scale = fontSize / Float(fontAtlas.metrics.emSize)
+        let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
+        
+        var maxXInLine: Float = 0
+        var maxLineWidth: Float = 0
+        var cursorX: Float = 0
+        var lineCount = 1
+        
+        var previousChar: UInt32 = 0
+        
+        for char in text.unicodeScalars {
+            if char == "\n" {
+                maxLineWidth = max(maxLineWidth, maxXInLine)
+                cursorX = 0
+                maxXInLine = 0
+                lineCount += 1
+                previousChar = 0
+                continue
+            }
+            
+            let unicode = char.value
+            
+            if previousChar != 0 {
+                let key = (UInt64(previousChar) << 32) | UInt64(unicode)
+                if let kern = fontKerning[key] {
+                    cursorX += Float(kern.advance) * scale
+                }
+            }
+            
+            guard let glyph = fontGlyphs[unicode],
+                  let plane = glyph.planeBounds else {
+                previousChar = unicode
+                continue
+            }
+            
+            let glyphRight = cursorX + Float(plane.right) * scale
+            maxXInLine = max(maxXInLine, glyphRight)
+            
+            cursorX += Float(glyph.advance) * scale
+            previousChar = unicode
+        }
+        
+        let textWidth = max(maxLineWidth, maxXInLine)
+        let textHeight = Float(lineCount) * lineHeight;
+        return (textWidth, textHeight)
+    }
 }
 
 // MARK: - Math Helpers
@@ -652,19 +912,6 @@ extension float4x4 {
             SIMD4<Float>(     0,      0, 1, 0),
             SIMD4<Float>(     0,      0, 0, 1)
         ))
-    }
-}
-
-extension Int {
-    func nextPowerOf2() -> Int {
-        var n = self - 1
-        n |= n >> 1
-        n |= n >> 2
-        n |= n >> 4
-        n |= n >> 8
-        n |= n >> 16
-        n |= n >> 32 // for 64-bit
-        return n + 1
     }
 }
 
