@@ -203,8 +203,7 @@ class TextRenderer {
         let atlasWidth = Float(fontAtlas.atlas.width)
         let atlasHeight = Float(fontAtlas.atlas.height)
 
-        // Scale font units to pixels
-        let scale = Float(fontSize) // TODO: Do we really need to divide by emSize??? // / Float(fontMetrics.emSize)
+        let scale = Float(fontSize) / Float(fontAtlas.metrics.emSize)
         let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
         let ascender = Float(fontAtlas.metrics.ascender) * scale
 
@@ -270,16 +269,11 @@ class TextRenderer {
     func measureTextBounds(for text: String, withSize fontSize: Float) -> (width: Float, height: Float) {
         let scale = fontSize / Float(fontAtlas.metrics.emSize)
         let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
-        let ascender = Float(fontAtlas.metrics.ascender) * scale
-        let descender = Float(fontAtlas.metrics.descender) * scale
         
         var maxXInLine: Float = 0
         var maxLineWidth: Float = 0
         var cursorX: Float = 0
         var lineCount = 1
-        
-        var minY: Float = -ascender
-        var maxY: Float = minY
         
         var previousChar: UInt32 = 0
         
@@ -308,26 +302,16 @@ class TextRenderer {
                 continue
             }
             
-            let glyphLeft = cursorX + Float(plane.left) * scale
             let glyphRight = cursorX + Float(plane.right) * scale
-            let glyphTop = Float(plane.top) * scale
-            let glyphBottom = Float(plane.bottom) * scale
-            
             maxXInLine = max(maxXInLine, glyphRight)
-            
-            // Y bounds
-            let lineTop = -ascender + glyphTop
-            let lineBottom = -ascender + glyphBottom
-            
-            minY = min(minY, lineBottom)
-            maxY = max(maxY, lineTop)
             
             cursorX += Float(glyph.advance) * scale
             previousChar = unicode
         }
         
-        maxLineWidth = max(maxLineWidth, maxXInLine)
-        return (maxLineWidth, /*(maxY - minY) * */ Float(lineCount) * lineHeight)
+        let textWidth = max(maxLineWidth, maxXInLine)
+        let textHeight = Float(lineCount) * lineHeight;
+        return (textWidth, textHeight)
     }
 }
 

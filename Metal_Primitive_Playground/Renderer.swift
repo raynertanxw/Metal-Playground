@@ -406,16 +406,16 @@ class Renderer: NSObject, MTKViewDelegate {
                 { // Testing for text bounds checking
                     let fontSize: Float = 96
                     let now = Date().timeIntervalSince1970
-                    let text = "Hello, SDF World!\n\n\n\(Int(now))"
+                    let text = "Hello, SDF World!\n\n\(Int(now))"
                     let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
                     drawPrimitiveRect(
                         x: -Float(textBounds.width / 2.0),
-                        y: 0 - textBounds.height,
+                        y: -(textBounds.height / 2.0),
                         width: textBounds.width,
                         height: textBounds.height,
                         color: SIMD4<Float>(0,1.0,1.0,0.25))
                     drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
-                        y: 0,
+                                        y: Float(textBounds.height / 2.0),
                                         radius: 16, color: SIMD4<Float>.one)
                 }()
 
@@ -434,14 +434,15 @@ class Renderer: NSObject, MTKViewDelegate {
                 
                 // MARK: - TEXT RENDERING
                 let now = Date().timeIntervalSince1970
-                let text = "Hello, SDF World!\n\n\n\(Int(now))"
+                let text = "Hello, SDF World!\n\n\(Int(now))"
                 let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
                 
                 let fontSize: Float = 96
                 let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
                 textRenderer.draw(
                     text: text,
-                    at: [-Float(textBounds.width / 2.0), 0],      // X, Y position
+                    at: [-Float(textBounds.width / 2.0),
+                          Float(textBounds.height / 2.0)],      // X, Y position
                     fontSize: fontSize,       // Font size in points/pixels
                     color: color,
                     projectionMatrix: projectionMatrix,
