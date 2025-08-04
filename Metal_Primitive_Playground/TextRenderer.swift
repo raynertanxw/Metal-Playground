@@ -200,13 +200,17 @@ class TextRenderer {
     // MARK: - Mesh Generation
     private func buildMesh(for text: String, at origin: SIMD2<Float>, withSize fontSize: Float) -> [TextVertex] {
         var vertices: [TextVertex] = []
-        let scale = fontSize
         let atlasWidth = Float(fontAtlas.atlas.width)
         let atlasHeight = Float(fontAtlas.atlas.height)
-        let lineHeight = fontSize * 1.25 // Tune this as needed
+
+        // Scale font units to pixels
+        let scale = Float(fontSize) // TODO: Do we really need to divide by emSize??? // / Float(fontMetrics.emSize)
+        let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
+        let ascender = Float(fontAtlas.metrics.ascender) * scale
 
         var cursorX = origin.x
-        var cursorY = origin.y
+        var cursorY = origin.y - ascender // shift down so top of first line is at origin.y
+
         var previousChar: UInt32 = 0
 
         for char in text.unicodeScalars {
@@ -264,11 +268,12 @@ class TextRenderer {
     
     // MARK: - MEASURE TEXT
     func measureTextBounds(for text: String, withSize fontSize: Float) -> (minX: Float, maxX: Float, minY: Float, maxY: Float) {
-        let scale = fontSize
-        let lineHeight = fontSize * 1.25
+        let scale = Float(fontSize) // TODO: Do we really need to divide by emSize? / Float(fontMetrics.emSize)
+        let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
+        let ascender = Float(fontAtlas.metrics.ascender) * scale
 
         var cursorX: Float = 0
-        var cursorY: Float = 0
+        var cursorY: Float = -ascender // top-left anchor
 
         var minX = Float.greatestFiniteMagnitude
         var maxX = -Float.greatestFiniteMagnitude
@@ -314,7 +319,6 @@ class TextRenderer {
             previousChar = unicode
         }
 
-        // Empty fallback
         if minX == Float.greatestFiniteMagnitude {
             return (0, 0, 0, 0)
         }

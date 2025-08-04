@@ -412,12 +412,12 @@ class Renderer: NSObject, MTKViewDelegate {
                     let textHeight = textBounds.maxY - textBounds.minY
                     drawPrimitiveRect(
                         x: -Float(textWidth / 2.0),
-                        y: Float(screenSize.height / 4.0) - 100,
+                        y: 0 - textHeight,
                         width: textWidth,
                         height: textHeight,
                         color: SIMD4<Float>(0,1.0,1.0,0.25))
                     drawPrimitiveCircle(x: -Float(textWidth / 2.0),
-                        y: Float(screenSize.height / 4.0) - 100,
+                        y: 0,
                                         radius: 16, color: SIMD4<Float>.one)
                 }()
 
@@ -444,7 +444,7 @@ class Renderer: NSObject, MTKViewDelegate {
                 let textWidth = textBounds.maxX - textBounds.minX
                 textRenderer.draw(
                     text: text,
-                    at: [-Float(textWidth / 2.0), Float(screenSize.height / 4.0) - 100],      // X, Y position
+                    at: [-Float(textWidth / 2.0), 0],      // X, Y position
                     fontSize: fontSize,       // Font size in points/pixels
                     color: color,
                     projectionMatrix: projectionMatrix,
