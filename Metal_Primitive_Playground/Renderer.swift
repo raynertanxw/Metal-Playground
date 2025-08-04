@@ -43,10 +43,10 @@ struct PrimitiveInstanceData {
 struct TextVertex {
     var position: SIMD2<Float>
     var uv: SIMD2<Float>
+    var textColor: SIMD4<Float>
 }
 
 struct TextFragmentUniforms {
-    var textColor: SIMD4<Float>
     var distanceRange: Float
 }
 
@@ -317,14 +317,19 @@ class Renderer: NSObject, MTKViewDelegate {
         let vertexDescriptor = MTLVertexDescriptor()
         
         // Position
-        vertexDescriptor.attributes[TextVertAttr.position.rawValue].format = .float2 // position
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].format = .float2
         vertexDescriptor.attributes[TextVertAttr.position.rawValue].offset = 0
         vertexDescriptor.attributes[TextVertAttr.position.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
         
         // UV
-        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].format = .float2 // uv
-        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].offset = MemoryLayout<SIMD2<Float>>.stride
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].format = .float2
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].offset = MemoryLayout<TextVertex>.offset(of: \.uv)!
         vertexDescriptor.attributes[TextVertAttr.UV.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
+        
+        // Color
+        vertexDescriptor.attributes[TextVertAttr.textColor.rawValue].format = .float4
+        vertexDescriptor.attributes[TextVertAttr.textColor.rawValue].offset = MemoryLayout<TextVertex>.offset(of: \.textColor)!
+        vertexDescriptor.attributes[TextVertAttr.textColor.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
         
         vertexDescriptor.layouts[0].stride = MemoryLayout<TextVertex>.stride
         vertexDescriptor.layouts[0].stepFunction = .perVertex
@@ -490,14 +495,7 @@ class Renderer: NSObject, MTKViewDelegate {
         //        drawPrimitiveRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
     }
     
-    func updateGameState() {
-        atlasInstanceCount = 0
-        primitiveInstanceCount = 0
-        textVertexCount = 0
-        
-        updateAtlasInstanceData()
-        drawPrimitives()
-        
+    func drawText() {
         // Testing for text bounds checking
         let fontSize: Float = 96
         let now = Date().timeIntervalSince1970
@@ -512,6 +510,32 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
                             y: Float(textBounds.height / 2.0),
                             radius: 16, color: SIMD4<Float>.one)
+        
+        let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
+        drawText(
+            text: text,
+            posX: -Float(textBounds.width / 2.0),
+            posY: Float(textBounds.height / 2.0),
+            fontSize: fontSize,
+            color: color,
+        )
+        
+        
+        drawText(text: "HELLO       AGAIN!!!",
+                 posX: Float(20 - screenSize.width / 2.0),
+                 posY: Float(-20 + screenSize.height / 2.0),
+                 fontSize: 48,
+                 color: [0.3, 0.2, 0.7, 1.0])
+    }
+    
+    func updateGameState() {
+        atlasInstanceCount = 0
+        primitiveInstanceCount = 0
+        textVertexCount = 0
+        
+        updateAtlasInstanceData()
+        drawPrimitives()
+        drawText()
     }
     
     // MARK: - DRAW FUNCTION
@@ -567,28 +591,13 @@ class Renderer: NSObject, MTKViewDelegate {
                 }
                 
                 // MARK: - TEXT RENDERING
-                let now = Date().timeIntervalSince1970
-                let text = "Hello, SDF World!\n\n\(Int(now))"
-                let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
-                
-                let fontSize: Float = 96
-                let textBounds = measureTextBounds(for: text, withSize: fontSize)
-                drawText(
-                    text: text,
-                    posX: -Float(textBounds.width / 2.0),
-                    posY: Float(textBounds.height / 2.0),
-                    fontSize: fontSize,
-                    color: color,
-                )
-                
                 if textVertexCount > 0 { // Only do if there are text to draw
                     encoder.setRenderPipelineState(textPipelineState)
                     encoder.setVertexBuffer(textTriVertexBuffer, offset: textTriInstanceBufferOffset, index: TextBufferIndex.vertices.rawValue)
                     var projectionMatrix = projectionMatrix
                     encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
                     
-                    // TODO: need to split up the colour into vertex.
-                    var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
+                    var uniforms = TextFragmentUniforms(distanceRange: Float(fontAtlas.atlas.distanceRange))
                     encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
                     encoder.setFragmentTexture(fontTexture, index: 0)
                     encoder.setFragmentSamplerState(textSamplerState, index: 0)
@@ -751,7 +760,7 @@ class Renderer: NSObject, MTKViewDelegate {
         // TODO: Assert precondition that not beyond certain point in text.
         guard !text.isEmpty else { return }
         
-        let vertices = buildMesh(for: text, posX: posX, posY: posY, withSize: fontSize)
+        let vertices = buildMesh(for: text, posX: posX, posY: posY, withSize: fontSize, color: color)
         guard !vertices.isEmpty else { return }
         
         for index in 0..<vertices.count {
@@ -761,7 +770,7 @@ class Renderer: NSObject, MTKViewDelegate {
     }
 
     
-    private func buildMesh(for text: String, posX: Float, posY: Float, withSize fontSize: Float) -> [TextVertex] {
+    private func buildMesh(for text: String, posX: Float, posY: Float, withSize fontSize: Float, color: SIMD4<Float>) -> [TextVertex] {
         var vertices: [TextVertex] = []
         let atlasWidth = Float(fontAtlas.atlas.width)
         let atlasHeight = Float(fontAtlas.atlas.height)
@@ -810,10 +819,10 @@ class Renderer: NSObject, MTKViewDelegate {
             let v0 = Float(atlasHeight - Float(atlas.top)) / atlasHeight
             let v1 = Float(atlasHeight - Float(atlas.bottom)) / atlasHeight
             
-            let topLeft     = TextVertex(position: [x0, y1], uv: [u0, v0])
-            let topRight    = TextVertex(position: [x1, y1], uv: [u1, v0])
-            let bottomLeft  = TextVertex(position: [x0, y0], uv: [u0, v1])
-            let bottomRight = TextVertex(position: [x1, y0], uv: [u1, v1])
+            let topLeft     = TextVertex(position: [x0, y1], uv: [u0, v0], textColor: color)
+            let topRight    = TextVertex(position: [x1, y1], uv: [u1, v0], textColor: color)
+            let bottomLeft  = TextVertex(position: [x0, y0], uv: [u0, v1], textColor: color)
+            let bottomRight = TextVertex(position: [x1, y0], uv: [u1, v1], textColor: color)
             
             vertices.append(contentsOf: [
                 bottomLeft, bottomRight, topRight,

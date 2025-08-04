@@ -10,17 +10,18 @@ using namespace metal;
 #include "ShaderTypes.h"
 
 struct TextFragmentUniforms {
-    float4 textColor;
     float distanceRange;
 };
 
 struct VertexIn {
     float2 position [[attribute(TextVertAttrPosition)]];
     float2 uv [[attribute(TextVertAttrUV)]];
+    float4 textColor [[attribute(TextVertAttrTextColor)]];
 };
 
 struct VertexOut {
     float4 position [[position]];
+    float4 textCol;
     float2 uv;
 };
 
@@ -31,6 +32,7 @@ vertex VertexOut text_vertex_shader(const VertexIn vertex_in [[stage_in]],
     VertexOut out;
     out.position = projection_matrix * float4(vertex_in.position, 0.0, 1.0);
     out.uv = vertex_in.uv;
+    out.textCol = vertex_in.textColor;
     return out;
 }
 
@@ -48,7 +50,7 @@ fragment float4 text_fragment_shader(VertexOut in [[stage_in]],
     float bias = -0.00;
     
     float alpha = smoothstep(0.5 + bias - edgeOffset, 0.5 + bias + edgeOffset, sd);
-    return float4(uniforms.textColor.rgb, uniforms.textColor.a * alpha);
+    return float4(in.textCol.rgb, in.textCol.a * alpha);
     
     
     // TODO: Possible future features such as outline and drop shadow.

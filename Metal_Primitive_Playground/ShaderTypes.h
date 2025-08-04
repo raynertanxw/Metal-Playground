@@ -44,6 +44,7 @@ typedef NS_ENUM(EnumBackingType, AtlasVertAttr) {
 typedef NS_ENUM(EnumBackingType, TextVertAttr) {
     TextVertAttrPosition = 0,
     TextVertAttrUV = 1,
+    TextVertAttrTextColor = 2,
 };
 
 
