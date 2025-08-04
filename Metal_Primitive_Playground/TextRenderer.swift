@@ -57,7 +57,7 @@ struct Kerning: Codable {
 // MARK: - Text Rendering Structs
 struct TextVertex {
     var position: SIMD2<Float>
-    var texCoord: SIMD2<Float>
+    var uv: SIMD2<Float>
 }
 
 struct TextFragmentUniforms {
@@ -75,10 +75,12 @@ class TextRenderer {
     private let fontAtlas: FontAtlas
     private var glyphs = [UInt32: Glyph]()
     private var kerning = [UInt64: Kerning]()
-    
+
     // Dynamic buffer for vertices
     private var vertexBuffer: MTLBuffer!
     private var vertexBufferCapacity: Int = 1024 * 6 // Initial capacity in number of characters (6 vertice per character)
+    
+    private var textSamplerState: MTLSamplerState
 
     // MARK: - Initialization
     init(device: MTLDevice, fontName: String, pixelFormat: MTLPixelFormat) {
@@ -95,6 +97,14 @@ class TextRenderer {
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.fragmentFunction = fragmentFunction
         
+        let textSamplerDescriptor = MTLSamplerDescriptor()
+        textSamplerDescriptor.minFilter = .linear
+        textSamplerDescriptor.magFilter = .linear
+        textSamplerDescriptor.mipFilter = .linear
+        guard let textSamplerState = device.makeSamplerState(descriptor: textSamplerDescriptor) else { fatalError("Unabled to create text sampler state") }
+        self.textSamplerState = textSamplerState
+
+        
         // Enable alpha blending
         let colorAttachment = pipelineDescriptor.colorAttachments[0]!
         colorAttachment.pixelFormat = pixelFormat
@@ -107,12 +117,12 @@ class TextRenderer {
         colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
 
         let vertexDescriptor = MTLVertexDescriptor()
-        vertexDescriptor.attributes[0].format = .float2 // position
-        vertexDescriptor.attributes[0].offset = 0
-        vertexDescriptor.attributes[0].bufferIndex = 0
-        vertexDescriptor.attributes[1].format = .float2 // texCoord
-        vertexDescriptor.attributes[1].offset = MemoryLayout<SIMD2<Float>>.stride
-        vertexDescriptor.attributes[1].bufferIndex = 0
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].format = .float2 // position
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].offset = 0
+        vertexDescriptor.attributes[TextVertAttr.position.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].format = .float2 // uv
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].offset = MemoryLayout<SIMD2<Float>>.stride
+        vertexDescriptor.attributes[TextVertAttr.UV.rawValue].bufferIndex = TextBufferIndex.vertices.rawValue
         vertexDescriptor.layouts[0].stride = MemoryLayout<TextVertex>.stride
         
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
@@ -177,7 +187,7 @@ class TextRenderer {
         let vertices = buildMesh(for: text, at: position, withSize: fontSize)
         guard !vertices.isEmpty else { return }
         
-        if vertices.count > vertexBufferCapacity {
+        if vertices.count > vertexBufferCapacity { // grow buffer capacity if needed
             let numCharacters = vertices.count / 6
             vertexBufferCapacity = numCharacters.nextPowerOf2() * 6
             vertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
@@ -186,13 +196,14 @@ class TextRenderer {
         
         // Get encoder to draw
         encoder.setRenderPipelineState(pipelineState)
-        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        encoder.setVertexBuffer(vertexBuffer, offset: 0, index: TextBufferIndex.vertices.rawValue)
         var projectionMatrix = projectionMatrix
-        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 1)
+        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
         
         var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
         encoder.setFragmentTexture(texture, index: 0)
+        encoder.setFragmentSamplerState(textSamplerState, index: 0)
         
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
     }
@@ -247,10 +258,10 @@ class TextRenderer {
             let v0 = Float(atlasHeight - Float(atlas.top)) / atlasHeight
             let v1 = Float(atlasHeight - Float(atlas.bottom)) / atlasHeight
 
-            let topLeft     = TextVertex(position: [x0, y1], texCoord: [u0, v0])
-            let topRight    = TextVertex(position: [x1, y1], texCoord: [u1, v0])
-            let bottomLeft  = TextVertex(position: [x0, y0], texCoord: [u0, v1])
-            let bottomRight = TextVertex(position: [x1, y0], texCoord: [u1, v1])
+            let topLeft     = TextVertex(position: [x0, y1], uv: [u0, v0])
+            let topRight    = TextVertex(position: [x1, y1], uv: [u1, v0])
+            let bottomLeft  = TextVertex(position: [x0, y0], uv: [u0, v1])
+            let bottomRight = TextVertex(position: [x1, y0], uv: [u1, v1])
 
             vertices.append(contentsOf: [
                 bottomLeft, bottomRight, topRight,

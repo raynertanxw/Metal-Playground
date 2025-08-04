@@ -31,9 +31,19 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexUniforms = 2,
 };
 
+typedef NS_ENUM(EnumBackingType, TextBufferIndex) {
+    TextBufferIndexVertices = 0,
+    TextBufferIndexProjectionMatrix = 1,
+};
+
 typedef NS_ENUM(EnumBackingType, AtlasVertAttr) {
     AtlasVertAttrPosition = 0,
     AtlasVertAttrUV = 1,
+};
+
+typedef NS_ENUM(EnumBackingType, TextVertAttr) {
+    TextVertAttrPosition = 0,
+    TextVertAttrUV = 1,
 };
 
 
