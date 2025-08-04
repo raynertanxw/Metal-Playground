@@ -402,6 +402,23 @@ class Renderer: NSObject, MTKViewDelegate {
                                            instanceCount: atlasInstanceCount)
                 }
                 
+                
+                { // Testing for text bounds checking
+                    let fontSize: Float = 96
+                    let now = Date().timeIntervalSince1970
+                    let text = "Hello, SDF World! \(Int(now))"
+                    let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
+                    let textWidth = textBounds.maxX - textBounds.minX
+                    let textHeight = textBounds.maxY - textBounds.minY
+                    drawPrimitiveRect(
+                        x: -Float(textWidth / 2.0),
+                        y: Float(screenSize.height / 2.0) - 100,
+                        width: textWidth,
+                        height: textHeight,
+                        color: SIMD4<Float>(0,1.0,1.0,0.25))
+                }()
+
+
                 // MARK: - PRIMITIVE PIPELINE
                 if primitiveInstanceCount > 0 { // Only do if there are primitives to draw
                     encoder.setRenderPipelineState(primitivePipelineState)
@@ -419,17 +436,18 @@ class Renderer: NSObject, MTKViewDelegate {
                 let text = "Hello, SDF World! \(Int(now))"
                 let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
                 
-                // TODO: Maybe need to pass in the encoder here instead.
                 let fontSize: Float = 96
                 let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
-                print("FontSize: \(textBounds.maxX - textBounds.minX)")
+                let textWidth = textBounds.maxX - textBounds.minX
+                //print("FontSize: \(textBounds.maxX - textBounds.minX)")
                 textRenderer.draw(
                     text: text,
-                    at: [-Float(screenSize.width / 2.0) + 50, Float(screenSize.height / 2.0) - 100],      // X, Y position
-                    withSize: fontSize,       // Font size in points/pixels
+                    at: [-Float(textWidth / 2.0), Float(screenSize.height / 2.0) - 100],      // X, Y position
+                    fontSize: fontSize,       // Font size in points/pixels
                     color: color,
                     projectionMatrix: projectionMatrix,
-                    on: encoder
+                    device: device,
+                    encoder: encoder
                 )
                 
                 encoder.endEncoding()

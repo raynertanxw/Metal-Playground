@@ -7,7 +7,54 @@
 
 import MetalKit
 
-// The vertex structure must match the `VertexIn` in Metal.
+// MARK: - Font Atlas Structs
+struct FontAtlas: Codable {
+    let atlas: AtlasMetrics
+    let metrics: FontMetrics
+    let glyphs: [Glyph]
+    let kerning: [Kerning]
+}
+
+struct AtlasMetrics: Codable {
+    let type: String
+    let distanceRange: Double
+    let size: Double
+    let width: Int
+    let height: Int
+    let yOrigin: String
+}
+
+struct FontMetrics: Codable {
+    let emSize: Double
+    let lineHeight: Double
+    let ascender: Double
+    let descender: Double
+    let underlineY: Double
+    let underlineThickness: Double
+}
+
+struct Glyph: Codable {
+    let unicode: Int
+    let advance: Double
+    let planeBounds: Bounds?
+    let atlasBounds: Bounds?
+}
+
+struct Bounds: Codable {
+    let left: Double
+    let bottom: Double
+    let right: Double
+    let top: Double
+}
+
+struct Kerning: Codable {
+    let unicode1: Int
+    let unicode2: Int
+    let advance: Double
+}
+
+
+// MARK: - Text Rendering Structs
 struct TextVertex {
     var position: SIMD2<Float>
     var texCoord: SIMD2<Float>
@@ -18,10 +65,9 @@ struct TextFragmentUniforms {
     var distanceRange: Float
 }
 
-class TextRenderer {
 
-    // MARK: - Properties
-    private let device: MTLDevice
+// MARK: - TextRenderer
+class TextRenderer {
     private let pipelineState: MTLRenderPipelineState
     private let texture: MTLTexture
     
@@ -32,15 +78,13 @@ class TextRenderer {
     
     // Dynamic buffer for vertices
     private var vertexBuffer: MTLBuffer!
-    private var vertexBufferCapacity: Int = 256 // Initial capacity for 256 characters
+    private var vertexBufferCapacity: Int = 1024 * 6 // Initial capacity in number of characters (6 vertice per character)
 
     // MARK: - Initialization
-
     init(device: MTLDevice, fontName: String, pixelFormat: MTLPixelFormat) {
-        self.device = device
-
-        // 1. Load Font Atlas Data (JSON and PNG)
+        // 1. Load Font Atlas Data (JSON and PNG) and process data for quick lookups
         (self.fontAtlas, self.texture) = Self.loadFontAtlas(device: device, fontName: fontName)
+        (self.glyphs, self.kerning) = Self.preprocessFontData(fontAtlas: fontAtlas)
         
         // 2. Create Metal Render Pipeline State
         let library = device.makeDefaultLibrary()!
@@ -82,9 +126,6 @@ class TextRenderer {
         // 3. Create initial (empty) vertex buffer
         self.vertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
         self.vertexBuffer.label = "Text Vertex Buffer"
-        
-        // 4. Pre-process font data for quick lookups
-        preprocessFontData()
     }
 
     private static func loadFontAtlas(device: MTLDevice, fontName: String) -> (FontAtlas, MTLTexture) {
@@ -105,7 +146,10 @@ class TextRenderer {
         return (fontAtlas, texture)
     }
     
-    private func preprocessFontData() {
+    private static func preprocessFontData(fontAtlas: FontAtlas) -> ([UInt32: Glyph], [UInt64: Kerning]) {
+        var glyphs = [UInt32: Glyph]()
+        var kerning = [UInt64: Kerning]()
+        
         for glyph in fontAtlas.glyphs {
             glyphs[UInt32(glyph.unicode)] = glyph
         }
@@ -114,46 +158,42 @@ class TextRenderer {
             let key = (UInt64(kern.unicode1) << 32) | UInt64(kern.unicode2)
             kerning[key] = kern
         }
+        
+        return (glyphs, kerning)
     }
 
     // MARK: - Drawing
-
-    /// Call this from your MTKView's `draw(in:)` method.
     public func draw(text: String,
                      at position: SIMD2<Float>,
-                     withSize fontSize: Float,
+                     fontSize: Float,
                      color: SIMD4<Float>,
                      projectionMatrix: simd_float4x4,
-                     on encoder: MTLRenderCommandEncoder) {
+                     device: MTLDevice,
+                     encoder: MTLRenderCommandEncoder) {
+        
         guard !text.isEmpty else { return }
         
-        // 1. Build the vertex mesh for the text string
+        // Build text vertices
         let vertices = buildMesh(for: text, at: position, withSize: fontSize)
         guard !vertices.isEmpty else { return }
         
-        // 2. Ensure vertex buffer is large enough
-        let requiredCapacity = vertices.count / 6
-        if requiredCapacity > vertexBufferCapacity {
-            vertexBufferCapacity = requiredCapacity.nextPowerOf2()
+        if vertices.count > vertexBufferCapacity {
+            let numCharacters = vertices.count / 6
+            vertexBufferCapacity = numCharacters.nextPowerOf2() * 6
             vertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared)
         }
-        
-        // 3. Copy vertex data into the buffer
         vertexBuffer.contents().copyMemory(from: vertices, byteCount: vertices.count * MemoryLayout<TextVertex>.stride)
         
-        // 4. Set state and resources on the EXISTING encoder
+        // Get encoder to draw
         encoder.setRenderPipelineState(pipelineState)
-        
-        // 5. Set Buffers and Textures
         encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         var projectionMatrix = projectionMatrix
-        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 1) // projection matrix at buffer(1)
+        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: 1)
         
         var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
         encoder.setFragmentTexture(texture, index: 0)
         
-        // 6. Draw
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
     }
 
