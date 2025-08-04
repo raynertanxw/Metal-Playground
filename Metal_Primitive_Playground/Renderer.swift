@@ -499,7 +499,7 @@ class Renderer: NSObject, MTKViewDelegate {
         // Testing for text bounds checking
         let fontSize: Float = 96
         let now = Date().timeIntervalSince1970
-        let text = "Hello, SDF World!\n\n\(Int(now))"
+        let text = "Hello, SDF\nWorld!\n\n\(Int(now))"
         let textBounds = measureTextBounds(for: text, withSize: fontSize)
         drawPrimitiveRect(
             x: -Float(textBounds.width / 2.0),
@@ -802,33 +802,35 @@ class Renderer: NSObject, MTKViewDelegate {
                 }
             }
             
-            guard let glyph = fontGlyphs[unicode],
-                  let plane = glyph.planeBounds,
-                  let atlas = glyph.atlasBounds else {
+            guard let glyph = fontGlyphs[unicode] else {
                 previousChar = unicode
                 continue
             }
-            
-            let x0 = cursorX + Float(plane.left) * scale
-            let y0 = cursorY + Float(plane.bottom) * scale
-            let x1 = cursorX + Float(plane.right) * scale
-            let y1 = cursorY + Float(plane.top) * scale
-            
-            let u0 = Float(atlas.left) / atlasWidth
-            let u1 = Float(atlas.right) / atlasWidth
-            let v0 = Float(atlasHeight - Float(atlas.top)) / atlasHeight
-            let v1 = Float(atlasHeight - Float(atlas.bottom)) / atlasHeight
-            
-            let topLeft     = TextVertex(position: [x0, y1], uv: [u0, v0], textColor: color)
-            let topRight    = TextVertex(position: [x1, y1], uv: [u1, v0], textColor: color)
-            let bottomLeft  = TextVertex(position: [x0, y0], uv: [u0, v1], textColor: color)
-            let bottomRight = TextVertex(position: [x1, y0], uv: [u1, v1], textColor: color)
-            
-            vertices.append(contentsOf: [
-                bottomLeft, bottomRight, topRight,
-                bottomLeft, topRight, topLeft
-            ])
-            
+
+            // Skip rendering, but still apply advance if glyph has no visible bounds (e.g. space)
+            if let plane = glyph.planeBounds, let atlas = glyph.atlasBounds {
+                let x0 = cursorX + Float(plane.left) * scale
+                let y0 = cursorY + Float(plane.bottom) * scale
+                let x1 = cursorX + Float(plane.right) * scale
+                let y1 = cursorY + Float(plane.top) * scale
+
+                let u0 = Float(atlas.left) / atlasWidth
+                let u1 = Float(atlas.right) / atlasWidth
+                let v0 = Float(atlasHeight - Float(atlas.top)) / atlasHeight
+                let v1 = Float(atlasHeight - Float(atlas.bottom)) / atlasHeight
+
+                let topLeft     = TextVertex(position: [x0, y1], uv: [u0, v0], textColor: color)
+                let topRight    = TextVertex(position: [x1, y1], uv: [u1, v0], textColor: color)
+                let bottomLeft  = TextVertex(position: [x0, y0], uv: [u0, v1], textColor: color)
+                let bottomRight = TextVertex(position: [x1, y0], uv: [u1, v1], textColor: color)
+
+                vertices.append(contentsOf: [
+                    bottomLeft, bottomRight, topRight,
+                    bottomLeft, topRight, topLeft
+                ])
+            }
+
+            // Always apply advance even if glyph wasn't rendered (e.g. space)
             cursorX += Float(glyph.advance) * scale
             previousChar = unicode
         }
@@ -866,21 +868,26 @@ class Renderer: NSObject, MTKViewDelegate {
                 }
             }
             
-            guard let glyph = fontGlyphs[unicode],
-                  let plane = glyph.planeBounds else {
-                previousChar = unicode
-                continue
+            if let glyph = fontGlyphs[unicode] {
+                // Even if no planeBounds, space still moves the cursor
+                if let plane = glyph.planeBounds {
+                    let glyphRight = cursorX + Float(plane.right) * scale
+                    maxXInLine = max(maxXInLine, glyphRight)
+                } else {
+                    // Approximate advance-only glyphs to still extend line length
+                    let glyphRight = cursorX + Float(glyph.advance) * scale
+                    maxXInLine = max(maxXInLine, glyphRight)
+                }
+                
+                cursorX += Float(glyph.advance) * scale
             }
             
-            let glyphRight = cursorX + Float(plane.right) * scale
-            maxXInLine = max(maxXInLine, glyphRight)
-            
-            cursorX += Float(glyph.advance) * scale
             previousChar = unicode
         }
         
         let textWidth = max(maxLineWidth, maxXInLine)
-        let textHeight = Float(lineCount) * lineHeight;
+        let textHeight = Float(lineCount) * lineHeight
+        
         return (textWidth, textHeight)
     }
 }
