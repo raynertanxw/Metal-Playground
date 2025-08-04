@@ -267,63 +267,67 @@ class TextRenderer {
 
     
     // MARK: - MEASURE TEXT
-    func measureTextBounds(for text: String, withSize fontSize: Float) -> (minX: Float, maxX: Float, minY: Float, maxY: Float) {
-        let scale = Float(fontSize) // TODO: Do we really need to divide by emSize? / Float(fontMetrics.emSize)
+    func measureTextBounds(for text: String, withSize fontSize: Float) -> (width: Float, height: Float) {
+        let scale = fontSize / Float(fontAtlas.metrics.emSize)
         let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
         let ascender = Float(fontAtlas.metrics.ascender) * scale
-
+        let descender = Float(fontAtlas.metrics.descender) * scale
+        
+        var maxXInLine: Float = 0
+        var maxLineWidth: Float = 0
         var cursorX: Float = 0
-        var cursorY: Float = -ascender // top-left anchor
-
-        var minX = Float.greatestFiniteMagnitude
-        var maxX = -Float.greatestFiniteMagnitude
-        var minY = Float.greatestFiniteMagnitude
-        var maxY = -Float.greatestFiniteMagnitude
-
+        var lineCount = 1
+        
+        var minY: Float = -ascender
+        var maxY: Float = minY
+        
         var previousChar: UInt32 = 0
-
+        
         for char in text.unicodeScalars {
             if char == "\n" {
+                maxLineWidth = max(maxLineWidth, maxXInLine)
                 cursorX = 0
-                cursorY -= lineHeight
+                maxXInLine = 0
+                lineCount += 1
                 previousChar = 0
                 continue
             }
-
+            
             let unicode = char.value
-
+            
             if previousChar != 0 {
                 let key = (UInt64(previousChar) << 32) | UInt64(unicode)
                 if let kern = kerning[key] {
                     cursorX += Float(kern.advance) * scale
                 }
             }
-
+            
             guard let glyph = glyphs[unicode],
                   let plane = glyph.planeBounds else {
                 previousChar = unicode
                 continue
             }
-
-            let x0 = cursorX + Float(plane.left) * scale
-            let x1 = cursorX + Float(plane.right) * scale
-            let y0 = cursorY + Float(plane.bottom) * scale
-            let y1 = cursorY + Float(plane.top) * scale
-
-            minX = min(minX, x0)
-            maxX = max(maxX, x1)
-            minY = min(minY, y0)
-            maxY = max(maxY, y1)
-
+            
+            let glyphLeft = cursorX + Float(plane.left) * scale
+            let glyphRight = cursorX + Float(plane.right) * scale
+            let glyphTop = Float(plane.top) * scale
+            let glyphBottom = Float(plane.bottom) * scale
+            
+            maxXInLine = max(maxXInLine, glyphRight)
+            
+            // Y bounds
+            let lineTop = -ascender + glyphTop
+            let lineBottom = -ascender + glyphBottom
+            
+            minY = min(minY, lineBottom)
+            maxY = max(maxY, lineTop)
+            
             cursorX += Float(glyph.advance) * scale
             previousChar = unicode
         }
-
-        if minX == Float.greatestFiniteMagnitude {
-            return (0, 0, 0, 0)
-        }
-
-        return (minX, maxX, minY, maxY)
+        
+        maxLineWidth = max(maxLineWidth, maxXInLine)
+        return (maxLineWidth, /*(maxY - minY) * */ Float(lineCount) * lineHeight)
     }
 }
 
