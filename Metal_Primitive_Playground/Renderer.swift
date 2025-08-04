@@ -82,7 +82,7 @@ class Renderer: NSObject, MTKViewDelegate {
     // TODO: Use Arguement buffers to pass multiple texture atlasses?
     var mainAtlasTexture: MTLTexture!
     var mainAtlasUVRects: [String: AtlasUVRect] = [:]
-    var atlasSamplerState: MTLSamplerState
+    let atlasSamplerState: MTLSamplerState
     
     
     
@@ -113,10 +113,12 @@ class Renderer: NSObject, MTKViewDelegate {
     private var fontKerning = [UInt64: Kerning]()
     
     private let textPipelineState: MTLRenderPipelineState
+    private let textSamplerState: MTLSamplerState
     private var textTriVertexBuffer: MTLBuffer!
-    private let textVertexBufferMaxCapacity: Int = 4096 * 6
-    private var textSamplerState: MTLSamplerState
-    // TODO: text vertexBufferCount + textVertexBufferPtr
+    private let textMaxVertexCount: Int = 4096 * 6
+    private var textTriInstanceBufferOffset = 0
+    private var textVertexBufferPtr: UnsafeMutablePointer<TextVertex>
+    private var textVertexCount = 0
     
     
     
@@ -139,11 +141,11 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // Build Primitive Buffers
         (self.primitiveVertexBuffer, self.primitiveTriInstanceBuffer) = Self.buildPrimitiveBuffers(device: device, vertices: primitiveSquareVertices, maxCount: primitiveMaxInstanceCount)
-        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()) .bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
         
         // Build Text Buffers
-        self.textTriVertexBuffer = Self.buildTextBuffers(device: device, maxSize:   textVertexBufferMaxCapacity)
-        // TODO: Bind textTriBertexBufferPtr
+        self.textTriVertexBuffer = Self.buildTextBuffers(device: device, maxSize:   textMaxVertexCount)
+        self.textVertexBufferPtr = UnsafeMutableRawPointer(textTriVertexBuffer.contents()).bindMemory(to: TextVertex.self, capacity: textMaxVertexCount)
 
         // Build Pipelines & Descriptors & Misc
         (self.atlasPipelineState, self.atlasSamplerState) = Self.buildAtlasPipeline(device: device, mtkView: mtkView)
@@ -195,9 +197,10 @@ class Renderer: NSObject, MTKViewDelegate {
     
     private class func buildTextBuffers(device: MTLDevice, maxSize vertexBufferCapacity: Int) -> (MTLBuffer) {
         // TODO: Make this actual tri buffer
-        guard let textTriVertexBuffer = device.makeBuffer(length: MemoryLayout<TextVertex>.stride * 6 * vertexBufferCapacity, options: .storageModeShared) else {
-            fatalError("Unable to create vertex buffer for text")
-        }
+        let textTriInstanceBufferSize = MemoryLayout<TextVertex>.stride * vertexBufferCapacity * maxBuffersInFlight
+        guard let textTriVertexBuffer = device.makeBuffer(
+            length: textTriInstanceBufferSize,
+            options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create vertex buffer for text") }
         textTriVertexBuffer.label = "Text Tri Vertex Buffer"
         
         return textTriVertexBuffer
@@ -212,7 +215,8 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
         primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
         
-        // TODO: Update with TextTriBuffer
+        textTriInstanceBufferOffset = MemoryLayout<TextVertex>.stride * textMaxVertexCount * triBufferIndex
+        textVertexBufferPtr = UnsafeMutableRawPointer(textTriVertexBuffer.contents()).advanced(by: textTriInstanceBufferOffset).bindMemory(to: TextVertex.self, capacity: textMaxVertexCount)
     }
     
     private class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
@@ -489,6 +493,7 @@ class Renderer: NSObject, MTKViewDelegate {
     func updateGameState() {
         atlasInstanceCount = 0
         primitiveInstanceCount = 0
+        textVertexCount = 0
         
         updateAtlasInstanceData()
         drawPrimitives()
@@ -570,14 +575,26 @@ class Renderer: NSObject, MTKViewDelegate {
                 let textBounds = measureTextBounds(for: text, withSize: fontSize)
                 drawText(
                     text: text,
-                    at: [-Float(textBounds.width / 2.0),
-                          Float(textBounds.height / 2.0)],      // X, Y position
-                    fontSize: fontSize,       // Font size in points/pixels
+                    posX: -Float(textBounds.width / 2.0),
+                    posY: Float(textBounds.height / 2.0),
+                    fontSize: fontSize,
                     color: color,
-                    projectionMatrix: projectionMatrix,
-                    device: device,
-                    encoder: encoder
                 )
+                
+                if textVertexCount > 0 { // Only do if there are text to draw
+                    encoder.setRenderPipelineState(textPipelineState)
+                    encoder.setVertexBuffer(textTriVertexBuffer, offset: textTriInstanceBufferOffset, index: TextBufferIndex.vertices.rawValue)
+                    var projectionMatrix = projectionMatrix
+                    encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
+                    
+                    // TODO: need to split up the colour into vertex.
+                    var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
+                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
+                    encoder.setFragmentTexture(fontTexture, index: 0)
+                    encoder.setFragmentSamplerState(textSamplerState, index: 0)
+                    
+                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: textVertexCount)
+                }
                 
                 encoder.endEncoding()
                 if let drawable = view.currentDrawable {
@@ -727,38 +744,24 @@ class Renderer: NSObject, MTKViewDelegate {
     
     // MARK: - Text Drawing Functions
     func drawText(text: String,
-                  at position: SIMD2<Float>,
+                  posX: Float, posY: Float,
                   fontSize: Float,
-                  color: SIMD4<Float>,
-                  projectionMatrix: simd_float4x4,
-                  device: MTLDevice,
-                  encoder: MTLRenderCommandEncoder) {
+                  color: SIMD4<Float>) {
         
         // TODO: Assert precondition that not beyond certain point in text.
         guard !text.isEmpty else { return }
         
-        // Build text vertices
-        let vertices = buildMesh(for: text, at: position, withSize: fontSize)
+        let vertices = buildMesh(for: text, posX: posX, posY: posY, withSize: fontSize)
         guard !vertices.isEmpty else { return }
         
-        textTriVertexBuffer.contents().copyMemory(from: vertices, byteCount: vertices.count * MemoryLayout<TextVertex>.stride)
-        
-        // Get encoder to draw
-        encoder.setRenderPipelineState(textPipelineState)
-        encoder.setVertexBuffer(textTriVertexBuffer, offset: 0, index: TextBufferIndex.vertices.rawValue)
-        var projectionMatrix = projectionMatrix
-        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
-        
-        var uniforms = TextFragmentUniforms(textColor: color, distanceRange: Float(fontAtlas.atlas.distanceRange))
-        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
-        encoder.setFragmentTexture(fontTexture, index: 0)
-        encoder.setFragmentSamplerState(textSamplerState, index: 0)
-        
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
+        for index in 0..<vertices.count {
+            textVertexBufferPtr[textVertexCount + index] = vertices[index]
+        }
+        textVertexCount += vertices.count
     }
 
     
-    private func buildMesh(for text: String, at origin: SIMD2<Float>, withSize fontSize: Float) -> [TextVertex] {
+    private func buildMesh(for text: String, posX: Float, posY: Float, withSize fontSize: Float) -> [TextVertex] {
         var vertices: [TextVertex] = []
         let atlasWidth = Float(fontAtlas.atlas.width)
         let atlasHeight = Float(fontAtlas.atlas.height)
@@ -767,14 +770,14 @@ class Renderer: NSObject, MTKViewDelegate {
         let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
         let ascender = Float(fontAtlas.metrics.ascender) * scale
         
-        var cursorX = origin.x
-        var cursorY = origin.y - ascender // shift down so top of first line is at origin.y
+        var cursorX = posX
+        var cursorY = posY - ascender // shift down so top of first line is at origin.y
         
         var previousChar: UInt32 = 0
         
         for char in text.unicodeScalars {
             if char == "\n" {
-                cursorX = origin.x
+                cursorX = posX
                 cursorY -= lineHeight
                 previousChar = 0
                 continue
