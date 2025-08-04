@@ -216,6 +216,57 @@ class TextRenderer {
 
         return vertices
     }
+    
+    // MARK: - MEASURE TEXT
+    func measureTextBounds(for text: String, withSize fontSize: Float) -> (minX: Float, maxX: Float, minY: Float, maxY: Float) {
+        var cursorX: Float = 0
+        var minX = Float.greatestFiniteMagnitude
+        var maxX = -Float.greatestFiniteMagnitude
+        var minY = Float.greatestFiniteMagnitude
+        var maxY = -Float.greatestFiniteMagnitude
+
+        let scale = fontSize
+        var previousChar: UInt32 = 0
+
+        for char in text.unicodeScalars {
+            let unicode = char.value
+
+            // Apply kerning
+            if previousChar != 0 {
+                let key = (UInt64(previousChar) << 32) | UInt64(unicode)
+                if let kern = kerning[key] {
+                    cursorX += Float(kern.advance) * scale
+                }
+            }
+
+            guard let glyph = glyphs[unicode],
+                  let plane = glyph.planeBounds else {
+                previousChar = unicode
+                continue
+            }
+
+            let x0 = cursorX + Float(plane.left) * scale
+            let x1 = cursorX + Float(plane.right) * scale
+            let y0 = Float(plane.bottom) * scale
+            let y1 = Float(plane.top) * scale
+
+            minX = min(minX, x0)
+            maxX = max(maxX, x1)
+            minY = min(minY, y0)
+            maxY = max(maxY, y1)
+
+            cursorX += Float(glyph.advance) * scale
+            previousChar = unicode
+        }
+
+        // In case no glyphs were valid
+        if minX == Float.greatestFiniteMagnitude {
+            return (0, 0, 0, 0)
+        }
+
+        return (minX, maxX, minY, maxY)
+    }
+
 }
 
 // Helper to get next power of two for buffer resizing

@@ -314,7 +314,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func drawPrimitives() {
         // TEST: Draw many primitive circles
-        let circleCount = 1//1000
+        let circleCount = 1//40000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         var color = SIMD4<Float>.zero
         
@@ -420,10 +420,13 @@ class Renderer: NSObject, MTKViewDelegate {
                 let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
                 
                 // TODO: Maybe need to pass in the encoder here instead.
+                let fontSize: Float = 96
+                let textBounds = textRenderer.measureTextBounds(for: text, withSize: fontSize)
+                print("FontSize: \(textBounds.maxX - textBounds.minX)")
                 textRenderer.draw(
                     text: text,
                     at: [-Float(screenSize.width / 2.0) + 50, Float(screenSize.height / 2.0) - 100],      // X, Y position
-                    withSize: 96,       // Font size in points/pixels
+                    withSize: fontSize,       // Font size in points/pixels
                     color: color,
                     projectionMatrix: projectionMatrix,
                     on: encoder
