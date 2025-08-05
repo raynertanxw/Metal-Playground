@@ -85,7 +85,6 @@ class Renderer: NSObject, MTKViewDelegate {
     let atlasSamplerState: MTLSamplerState
     
     
-    
     // MARK: - PRIMITIVE PIPELINE VARs
     var primitivePipelineState: MTLRenderPipelineState
     var primitiveVertexBuffer: MTLBuffer
@@ -105,7 +104,6 @@ class Renderer: NSObject, MTKViewDelegate {
     var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
     
     
-    
     // MARK: - TEXT PIPELINE VARS
     private let fontTexture: MTLTexture
     private let fontAtlas: FontAtlas
@@ -121,6 +119,23 @@ class Renderer: NSObject, MTKViewDelegate {
     private var textVertexCount = 0
     
     
+    // MARK: - Draw Command Batching
+    enum DrawBatchType: CaseIterable {
+        case none
+        case atlas
+        case primitive
+        case text
+    }
+    struct DrawBatch {
+        var type: DrawBatchType
+        var startIndex: Int
+        var count: Int
+    }
+    var drawBatches: [DrawBatch]
+    var drawBatchCount: Int = 0
+    let drawBatchMax: Int = 1024
+    var curDrawBatchType: DrawBatchType = .none
+    
     
     
     // MARK: - GAME RELATED
@@ -129,6 +144,7 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - INIT
     init(mtkView: MTKView) {
         self.inFlightSemaphore = DispatchSemaphore(value: Self.maxBuffersInFlight)
+        self.drawBatches = Array(repeating: DrawBatch(type: .none, startIndex: 0, count: 0), count: drawBatchMax)
         
         guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
         self.device = device
@@ -425,7 +441,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func updateAtlasInstanceData() {
         // For test: oscillate count between 0 and testMaxCount
-        let testMaxCount: Float = 1//100
+        let testMaxCount: Float = 100
         let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), atlasMaxInstanceCount - 1)
         
         var color = SIMD4<Float>.zero
@@ -501,15 +517,15 @@ class Renderer: NSObject, MTKViewDelegate {
         let now = Date().timeIntervalSince1970
         let text = "Hello, SDF\nWorld!\n\n\(Int(now))"
         let textBounds = measureTextBounds(for: text, withSize: fontSize)
+        drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
+                            y: Float(textBounds.height / 2.0),
+                            radius: 16, color: SIMD4<Float>.one)
         drawPrimitiveRect(
             x: -Float(textBounds.width / 2.0),
             y: -(textBounds.height / 2.0),
             width: textBounds.width,
             height: textBounds.height,
             color: SIMD4<Float>(0,1.0,1.0,0.25))
-        drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
-                            y: Float(textBounds.height / 2.0),
-                            radius: 16, color: SIMD4<Float>.one)
         
         let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
         drawText(
@@ -529,6 +545,8 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     func updateGameState() {
+        drawBatchCount = 0
+        curDrawBatchType = .none
         atlasInstanceCount = 0
         primitiveInstanceCount = 0
         textVertexCount = 0
@@ -536,6 +554,13 @@ class Renderer: NSObject, MTKViewDelegate {
         updateAtlasInstanceData()
         drawPrimitives()
         drawText()
+        
+        drawSprite(spriteName: "player_2", x: 0, y: 0, width: 512, height: 512, color: SIMD4<Float>.one)
+        drawPrimitiveCircle(x: -128, y: 0, radius: 256, color: [1,0,0,1])
+        drawSprite(spriteName: "player_2", x: 0, y: 0, width: 256, height: 256, color: SIMD4<Float>.one)
+        drawPrimitiveCircle(x: 128, y: 0, radius: 128, color: [0,1,1,1])
+        drawSprite(spriteName: "player_2", x: 0, y: 0, width: 128, height: 128, color: SIMD4<Float>.one)
+        drawPrimitiveCircle(x: -32, y: 0, radius: 32, color: [0,1,0,1])
     }
     
     // MARK: - DRAW FUNCTION
@@ -559,50 +584,54 @@ class Renderer: NSObject, MTKViewDelegate {
             let renderPassDescriptor = view.currentRenderPassDescriptor
             if let renderPassDescriptor = renderPassDescriptor, let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) {
                 encoder.label = "Primary Render Encoder"
-                
-                // MARK: - ATLAS PIPELINE
-                if atlasInstanceCount > 0 {
-                    encoder.setRenderPipelineState(atlasPipelineState)
-                    encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
-                    encoder.setVertexBuffer(atlasTriInstanceBuffer, offset: atlasTriInstanceBufferOffset, index: BufferIndex.instances.rawValue)
-                    
-                    // Load Main Texture at tex buffer 0.
-                    encoder.setFragmentTexture(mainAtlasTexture, index: 0)
-                    
-                    // Load TexSampler at sampler buffer 0.
-                    encoder.setFragmentSamplerState(atlasSamplerState, index: 0)
-                    
-                    encoder.drawPrimitives(type: .triangleStrip,
-                                           vertexStart: 0,
-                                           vertexCount: atlasSquareVertices.count,
-                                           instanceCount: atlasInstanceCount)
-                }
-                
-                // MARK: - PRIMITIVE PIPELINE
-                if primitiveInstanceCount > 0 { // Only do if there are primitives to draw
-                    encoder.setRenderPipelineState(primitivePipelineState)
-                    encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
-                    encoder.setVertexBuffer(primitiveTriInstanceBuffer, offset: primitiveTriInstanceBufferOffset, index: BufferIndex.instances.rawValue)
-                    encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: BufferIndex.uniforms.rawValue)
-                    encoder.drawPrimitives(type: .triangleStrip,
-                                           vertexStart: 0,
-                                           vertexCount: primitiveSquareVertices.count,
-                                           instanceCount: primitiveInstanceCount)
-                }
-                
-                // MARK: - TEXT RENDERING
-                if textVertexCount > 0 { // Only do if there are text to draw
-                    encoder.setRenderPipelineState(textPipelineState)
-                    encoder.setVertexBuffer(textTriVertexBuffer, offset: textTriInstanceBufferOffset, index: TextBufferIndex.vertices.rawValue)
-                    var projectionMatrix = projectionMatrix
-                    encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
-                    
-                    var uniforms = TextFragmentUniforms(distanceRange: Float(fontAtlas.atlas.distanceRange))
-                    encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
-                    encoder.setFragmentTexture(fontTexture, index: 0)
-                    encoder.setFragmentSamplerState(textSamplerState, index: 0)
-                    
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: textVertexCount)
+                            
+                for batchIndex in 0..<drawBatchCount {
+                    let batch = self.drawBatches[batchIndex]
+                    switch batch.type {
+                    case .none:
+                        fatalError("Draw Batch with type none")
+                    case .atlas:
+                        encoder.setRenderPipelineState(atlasPipelineState)
+                        encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
+                        
+                        encoder.setVertexBuffer(atlasTriInstanceBuffer,
+                                                offset: atlasTriInstanceBufferOffset + (MemoryLayout<AtlasInstanceData>.stride * batch.startIndex),
+                                                index: BufferIndex.instances.rawValue)
+                        
+                        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
+                        encoder.setFragmentSamplerState(atlasSamplerState, index: 0)
+                        encoder.drawPrimitives(type: .triangleStrip,
+                                               vertexStart: 0,
+                                               vertexCount: atlasSquareVertices.count,
+                                               instanceCount: batch.count)
+                        
+                    case .primitive:
+                        encoder.setRenderPipelineState(primitivePipelineState)
+                        encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
+                        
+                        encoder.setVertexBuffer(primitiveTriInstanceBuffer,
+                                                offset: primitiveTriInstanceBufferOffset + (MemoryLayout<PrimitiveInstanceData>.stride * batch.startIndex),
+                                                index: BufferIndex.instances.rawValue)
+                        
+                        encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: BufferIndex.uniforms.rawValue)
+                        encoder.drawPrimitives(type: .triangleStrip,
+                                               vertexStart: 0,
+                                               vertexCount: primitiveSquareVertices.count,
+                                               instanceCount: batch.count)
+                        
+                    case .text:
+                        encoder.setRenderPipelineState(textPipelineState)
+                        encoder.setVertexBuffer(textTriVertexBuffer, offset: textTriInstanceBufferOffset, index: TextBufferIndex.vertices.rawValue)
+                        var projectionMatrix = projectionMatrix
+                        encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
+                        
+                        var uniforms = TextFragmentUniforms(distanceRange: Float(fontAtlas.atlas.distanceRange))
+                        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
+                        encoder.setFragmentTexture(fontTexture, index: 0)
+                        encoder.setFragmentSamplerState(textSamplerState, index: 0)
+                        
+                        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: textVertexCount)
+                    }
                 }
                 
                 encoder.endEncoding()
@@ -628,6 +657,18 @@ class Renderer: NSObject, MTKViewDelegate {
         return SIMD4(Float(r) * scale, Float(g) * scale, Float(b) * scale, Float(a) * scale)
     }
     
+    private func addToDrawBatch(type: DrawBatchType, increment: Int, startIndex: Int) {
+        if curDrawBatchType == type {
+            drawBatches[drawBatchCount - 1].count += increment
+        } else {
+            curDrawBatchType = type
+            drawBatches[drawBatchCount].type = type
+            drawBatches[drawBatchCount].startIndex = startIndex
+            drawBatches[drawBatchCount].count = increment
+            drawBatchCount += 1
+        }
+    }
+    
     // MARK: - ATLAS DRAWING FUNCTIONS
     func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, rotationRadians: Float = 0) {
         drawSprite(spriteName: spriteName, x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a), rotationRadians: rotationRadians)
@@ -643,7 +684,8 @@ class Renderer: NSObject, MTKViewDelegate {
             color: color,
             uvMin: uvRect.minUV,
             uvMax: uvRect.maxUV)
-        
+
+        addToDrawBatch(type: .atlas, increment: 1, startIndex: atlasInstanceCount)
         atlasInstanceCount += 1
     }
     
@@ -658,6 +700,8 @@ class Renderer: NSObject, MTKViewDelegate {
             shapeType: ShapeType.circle.rawValue,
             sdfParams: SIMD4<Float>(radius, 0.5, 0, 0) // hardcode edge softness to 0.5
         )
+        
+        addToDrawBatch(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
         primitiveInstanceCount += 1
     }
     
@@ -671,6 +715,8 @@ class Renderer: NSObject, MTKViewDelegate {
             shapeType: ShapeType.circleLines.rawValue,
             sdfParams: SIMD4<Float>(radius, 0.5, thickness / 2.0, 0) // hardcode edge softness to 0.5
         )
+        
+        addToDrawBatch(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
         primitiveInstanceCount += 1
     }
     
@@ -699,6 +745,8 @@ class Renderer: NSObject, MTKViewDelegate {
             shapeType: ShapeType.rect.rawValue,
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
         )
+        
+        addToDrawBatch(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
         primitiveInstanceCount += 1
     }
     
@@ -714,6 +762,7 @@ class Renderer: NSObject, MTKViewDelegate {
         )
         
         primitiveInstancesPtr[primitiveInstanceCount] = instance
+        addToDrawBatch(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
         primitiveInstanceCount += 1
     }
     
@@ -732,6 +781,8 @@ class Renderer: NSObject, MTKViewDelegate {
             shapeType: ShapeType.roundedRect.rawValue,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
         )
+        
+        addToDrawBatch(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
         primitiveInstanceCount += 1
     }
     
@@ -748,6 +799,8 @@ class Renderer: NSObject, MTKViewDelegate {
             shapeType: ShapeType.rectLines.rawValue,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, thickness, 0)
         )
+        
+        addToDrawBatch(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
         primitiveInstanceCount += 1
     }
     
