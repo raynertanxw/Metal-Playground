@@ -53,26 +53,26 @@ struct TextFragmentUniforms {
 
 // MARK: - Renderer Class
 class Renderer: NSObject, MTKViewDelegate {
-    var projectionMatrix = matrix_identity_float4x4
-    var screenSize: CGSize = .zero
+    private var projectionMatrix = matrix_identity_float4x4
+    private var screenSize: CGSize = .zero
     
-    let device: MTLDevice
-    let commandQueue: MTLCommandQueue
+    private let device: MTLDevice
+    private let commandQueue: MTLCommandQueue
 
-    static let maxBuffersInFlight = 3
-    let inFlightSemaphore: DispatchSemaphore
-    var triBufferIndex = 0
+    private static let maxBuffersInFlight = 3
+    private let inFlightSemaphore: DispatchSemaphore
+    private var triBufferIndex = 0
     
     // MARK: - ATLAS PIPELINE VARS
-    var atlasPipelineState: MTLRenderPipelineState
-    var atlasVertexBuffer: MTLBuffer
-    var atlasTriInstanceBuffer: MTLBuffer
-    var atlasTriInstanceBufferOffset = 0
-    var atlasInstancesPtr: UnsafeMutablePointer<AtlasInstanceData>
-    let atlasMaxInstanceCount = 50000
-    var atlasInstanceCount = 0
+    private var atlasPipelineState: MTLRenderPipelineState
+    private var atlasVertexBuffer: MTLBuffer
+    private var atlasTriInstanceBuffer: MTLBuffer
+    private var atlasTriInstanceBufferOffset = 0
+    private var atlasInstancesPtr: UnsafeMutablePointer<AtlasInstanceData>
+    private let atlasMaxInstanceCount = 50000
+    private var atlasInstanceCount = 0
     
-    let atlasSquareVertices: [AtlasVertex] = [
+    private let atlasSquareVertices: [AtlasVertex] = [
         AtlasVertex(position: [-0.5, -0.5], uv: [0, 1]),
         AtlasVertex(position: [ 0.5, -0.5], uv: [1, 1]),
         AtlasVertex(position: [-0.5,  0.5], uv: [0, 0]),
@@ -80,28 +80,28 @@ class Renderer: NSObject, MTKViewDelegate {
     ]
     
     // TODO: Use Arguement buffers to pass multiple texture atlasses?
-    var mainAtlasTexture: MTLTexture!
-    var mainAtlasUVRects: [String: AtlasUVRect] = [:]
-    let atlasSamplerState: MTLSamplerState
+    private var mainAtlasTexture: MTLTexture!
+    private var mainAtlasUVRects: [String: AtlasUVRect] = [:]
+    private let atlasSamplerState: MTLSamplerState
     
     
     // MARK: - PRIMITIVE PIPELINE VARs
-    var primitivePipelineState: MTLRenderPipelineState
-    var primitiveVertexBuffer: MTLBuffer
-    var primitiveTriInstanceBuffer: MTLBuffer
-    var primitiveTriInstanceBufferOffset = 0
-    var primitiveInstancesPtr: UnsafeMutablePointer<PrimitiveInstanceData>
-    let primitiveMaxInstanceCount = 50000
-    var primitiveInstanceCount = 0
+    private var primitivePipelineState: MTLRenderPipelineState
+    private var primitiveVertexBuffer: MTLBuffer
+    private var primitiveTriInstanceBuffer: MTLBuffer
+    private var primitiveTriInstanceBufferOffset = 0
+    private var primitiveInstancesPtr: UnsafeMutablePointer<PrimitiveInstanceData>
+    private let primitiveMaxInstanceCount = 50000
+    private var primitiveInstanceCount = 0
     
-    let primitiveSquareVertices: [PrimitiveVertex] = [
+    private let primitiveSquareVertices: [PrimitiveVertex] = [
         PrimitiveVertex(position: [-0.5, -0.5]),
         PrimitiveVertex(position: [0.5, -0.5]),
         PrimitiveVertex(position: [-0.5, 0.5]),
         PrimitiveVertex(position: [0.5, 0.5])
     ]
     
-    var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
+    private var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
     
     
     // MARK: - TEXT PIPELINE VARS
@@ -131,10 +131,10 @@ class Renderer: NSObject, MTKViewDelegate {
         var startIndex: Int
         var count: Int
     }
-    var drawBatches: [DrawBatch]
-    var drawBatchCount: Int = 0
-    let drawBatchMax: Int = 1024
-    var curDrawBatchType: DrawBatchType = .none
+    private var drawBatches: [DrawBatch]
+    private var drawBatchCount: Int = 0
+    private let drawBatchMax: Int = 1024
+    private var curDrawBatchType: DrawBatchType = .none
     
     
     
@@ -439,7 +439,7 @@ class Renderer: NSObject, MTKViewDelegate {
         return (glyphs, kerning)
     }
     
-    func updateAtlasInstanceData() {
+    private func testDrawSprites() {
         // For test: oscillate count between 0 and testMaxCount
         let testMaxCount: Float = 10000
         let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), atlasMaxInstanceCount - 1)
@@ -469,8 +469,7 @@ class Renderer: NSObject, MTKViewDelegate {
         }()
     }
     
-    func drawPrimitives() {
-        // TEST: Draw many primitive circles
+    private func testDrawPrimitives() {
         let circleCount = 20000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         var color = SIMD4<Float>.zero
@@ -511,7 +510,7 @@ class Renderer: NSObject, MTKViewDelegate {
         //        drawPrimitiveRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
     }
     
-    func drawText() {
+    private func testDrawTextWithBounds() {
         // Testing for text bounds checking
         let fontSize: Float = 96
         let now = Date().timeIntervalSince1970
@@ -544,16 +543,16 @@ class Renderer: NSObject, MTKViewDelegate {
                  color: [0.3, 0.2, 0.7, 1.0])
     }
     
-    func updateGameState() {
+    private func updateGameState() {
         drawBatchCount = 0
         curDrawBatchType = .none
         atlasInstanceCount = 0
         primitiveInstanceCount = 0
         textVertexCount = 0
         
-        updateAtlasInstanceData()
-        drawPrimitives()
-        drawText()
+        testDrawSprites()
+        testDrawPrimitives()
+        testDrawTextWithBounds()
         
         drawSprite(spriteName: "player_2", x: 0, y: 0, width: 512, height: 512, color: SIMD4<Float>.one)
         drawPrimitiveCircle(x: -128, y: 0, radius: 256, color: [1,0,0,1])
@@ -593,6 +592,8 @@ class Renderer: NSObject, MTKViewDelegate {
                             
                 for batchIndex in 0..<drawBatchCount {
                     let batch = self.drawBatches[batchIndex]
+                    assert(batch.count > 0)
+                    assert(batch.startIndex >= 0)
                     switch batch.type {
                     case .none:
                         fatalError("Draw Batch with type none")
@@ -678,10 +679,10 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - ATLAS DRAWING FUNCTIONS
-    func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, rotationRadians: Float = 0) {
+    private func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, rotationRadians: Float = 0) {
         drawSprite(spriteName: spriteName, x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a), rotationRadians: rotationRadians)
     }
-    func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
+    private func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
         // TODO: Handle if from another atlas
         let uvRect = mainAtlasUVRects[spriteName]!
         atlasInstancesPtr[atlasInstanceCount] = AtlasInstanceData(
@@ -698,10 +699,10 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
-    func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    private func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawPrimitiveCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
+    private func drawPrimitiveCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
@@ -713,10 +714,10 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount += 1
     }
     
-    func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    private func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
+    private func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
         primitiveInstancesPtr[primitiveInstanceCount] = PrimitiveInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
@@ -728,10 +729,10 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount += 1
     }
     
-    func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    private func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawPrimitiveLine(x1: x1, y1: y1, x2: x2, y2: y2, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: SIMD4<Float>) {
+    private func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: SIMD4<Float>) {
         let dx = x2 - x1
         let dy = y2 - y1
         let length = sqrt(dx * dx + dy * dy)
@@ -758,10 +759,10 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount += 1
     }
     
-    func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    private func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawPrimitiveRect(x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
+    private func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
         let instance = PrimitiveInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
             color: color,
@@ -774,12 +775,12 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount += 1
     }
     
-    func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
+    private func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
                                   r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawPrimitiveRoundedRect(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius,
                                  color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
+    private func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
@@ -794,10 +795,10 @@ class Renderer: NSObject, MTKViewDelegate {
         primitiveInstanceCount += 1
     }
     
-    func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    private func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawPrimitiveRectLines(x: x, y: y, width: width, height: height, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
+    private func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
@@ -813,7 +814,7 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - Text Drawing Functions
-    func drawText(text: String,
+    private func drawText(text: String,
                   posX: Float, posY: Float,
                   fontSize: Float,
                   color: SIMD4<Float>) {
@@ -901,7 +902,7 @@ class Renderer: NSObject, MTKViewDelegate {
         return vertices
     }
     
-    func measureTextBounds(for text: String, withSize fontSize: Float) -> (width: Float, height: Float) {
+    public func measureTextBounds(for text: String, withSize fontSize: Float) -> (width: Float, height: Float) {
         let scale = fontSize / Float(fontAtlas.metrics.emSize)
         let lineHeight = Float(fontAtlas.metrics.lineHeight) * scale
         
