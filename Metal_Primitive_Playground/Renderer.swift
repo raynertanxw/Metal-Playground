@@ -212,7 +212,6 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     private class func buildTextBuffers(device: MTLDevice, maxSize vertexBufferCapacity: Int) -> (MTLBuffer) {
-        // TODO: Make this actual tri buffer
         let textTriInstanceBufferSize = MemoryLayout<TextVertex>.stride * vertexBufferCapacity * maxBuffersInFlight
         guard let textTriVertexBuffer = device.makeBuffer(
             length: textTriInstanceBufferSize,
@@ -315,8 +314,8 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let library = device.makeDefaultLibrary() else { fatalError("Unable to get default library") }
 
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        pipelineDescriptor.vertexFunction = library.makeFunction(name: "text_vertex_shader")
-        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "text_fragment_shader")        
+        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_text")
+        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_text")
                 
         // Enable alpha blending
         let colorAttachment = pipelineDescriptor.colorAttachments[0]!

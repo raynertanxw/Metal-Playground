@@ -26,7 +26,7 @@ struct VertexOut {
 };
 
 // MARK: - Vertex Shader
-vertex VertexOut text_vertex_shader(const VertexIn vertex_in [[stage_in]],
+vertex VertexOut vertex_text(const VertexIn vertex_in [[stage_in]],
                                     constant float4x4 &projection_matrix [[buffer(TextBufferIndexProjectionMatrix)]])
 {
     VertexOut out;
@@ -37,7 +37,7 @@ vertex VertexOut text_vertex_shader(const VertexIn vertex_in [[stage_in]],
 }
 
 // MARK: - Fragment Shader
-fragment float4 text_fragment_shader(VertexOut in [[stage_in]],
+fragment float4 fragment_text(VertexOut in [[stage_in]],
                                      texture2d<float> sdfTexture [[texture(0)]],
                                      constant TextFragmentUniforms &uniforms [[buffer(0)]],
                                      const sampler samp [[sampler(0)]])
