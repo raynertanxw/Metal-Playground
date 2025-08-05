@@ -544,12 +544,6 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     private func updateGameState() {
-        drawBatchCount = 0
-        curDrawBatchType = .none
-        atlasInstanceCount = 0
-        primitiveInstanceCount = 0
-        textVertexCount = 0
-        
         testDrawSprites()
         testDrawPrimitives()
         testDrawTextWithBounds()
@@ -580,6 +574,12 @@ class Renderer: NSObject, MTKViewDelegate {
             }
             
             self.updateTriBufferStates()
+            drawBatchCount = 0
+            curDrawBatchType = .none
+            atlasInstanceCount = 0
+            primitiveInstanceCount = 0
+            textVertexCount = 0
+
             
             time += 1.0 / Float(view.preferredFramesPerSecond)
             self.updateGameState()
@@ -667,6 +667,9 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     private func addToDrawBatch(type: DrawBatchType, increment: Int, startIndex: Int) {
+        assert(type == .atlas ? (startIndex + increment) < atlasMaxInstanceCount : true)
+        assert(type == .primitive ? (startIndex + increment) < primitiveMaxInstanceCount : true)
+        assert(type == .text ? (startIndex + increment) < textMaxVertexCount : true)
         if curDrawBatchType == type {
             drawBatches[drawBatchCount - 1].count += increment
         } else {
