@@ -441,7 +441,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func updateAtlasInstanceData() {
         // For test: oscillate count between 0 and testMaxCount
-        let testMaxCount: Float = 100
+        let testMaxCount: Float = 10000
         let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), atlasMaxInstanceCount - 1)
         
         var color = SIMD4<Float>.zero
@@ -471,7 +471,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     func drawPrimitives() {
         // TEST: Draw many primitive circles
-        let circleCount = 1//40000
+        let circleCount = 20000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         var color = SIMD4<Float>.zero
         
@@ -559,8 +559,14 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveCircle(x: -128, y: 0, radius: 256, color: [1,0,0,1])
         drawSprite(spriteName: "player_2", x: 0, y: 0, width: 256, height: 256, color: SIMD4<Float>.one)
         drawPrimitiveCircle(x: 128, y: 0, radius: 128, color: [0,1,1,1])
+        drawText(text: "Interleaved\nTest", posX: -50, posY: 50, fontSize: 48, color: SIMD4<Float>.one)
         drawSprite(spriteName: "player_2", x: 0, y: 0, width: 128, height: 128, color: SIMD4<Float>.one)
         drawPrimitiveCircle(x: -32, y: 0, radius: 32, color: [0,1,0,1])
+        drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
+        
+        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
+                 posX: -600, posY: 600, fontSize: 96, color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0)
+        )
     }
     
     // MARK: - DRAW FUNCTION
@@ -621,7 +627,9 @@ class Renderer: NSObject, MTKViewDelegate {
                         
                     case .text:
                         encoder.setRenderPipelineState(textPipelineState)
-                        encoder.setVertexBuffer(textTriVertexBuffer, offset: textTriInstanceBufferOffset, index: TextBufferIndex.vertices.rawValue)
+                        encoder.setVertexBuffer(textTriVertexBuffer,
+                                                offset: textTriInstanceBufferOffset + (MemoryLayout<TextVertex>.stride * batch.startIndex),
+                                                index: TextBufferIndex.vertices.rawValue)
                         var projectionMatrix = projectionMatrix
                         encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
                         
@@ -630,7 +638,7 @@ class Renderer: NSObject, MTKViewDelegate {
                         encoder.setFragmentTexture(fontTexture, index: 0)
                         encoder.setFragmentSamplerState(textSamplerState, index: 0)
                         
-                        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: textVertexCount)
+                        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: batch.count)
                     }
                 }
                 
@@ -819,6 +827,8 @@ class Renderer: NSObject, MTKViewDelegate {
         for index in 0..<vertices.count {
             textVertexBufferPtr[textVertexCount + index] = vertices[index]
         }
+        
+        addToDrawBatch(type: .text, increment: vertices.count, startIndex: textVertexCount)
         textVertexCount += vertices.count
     }
 
