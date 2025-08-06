@@ -89,8 +89,6 @@ class Renderer: NSObject, MTKViewDelegate {
     private var mainAtlasUVRects: [String: AtlasUVRect] = [:]
     private let atlasSamplerState: MTLSamplerState
     
-    private let atlasInstanceDataStride = MemoryLayout<AtlasInstanceData>.stride
-    
     
     // MARK: - PRIMITIVE PIPELINE VARs
     private var primitivePipelineState: MTLRenderPipelineState
@@ -109,7 +107,6 @@ class Renderer: NSObject, MTKViewDelegate {
     ]
     
     private var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
-    private let primitiveInstanceDataStride = MemoryLayout<PrimitiveInstanceData>.stride
     
     
     // MARK: - TEXT PIPELINE VARS
@@ -126,26 +123,27 @@ class Renderer: NSObject, MTKViewDelegate {
     private var textVertexBufferPtr: UnsafeMutablePointer<TextVertex>
     private var textVertexCount = 0
     
-    private let textVertexDataStride = MemoryLayout<TextVertex>.stride
-    
     
     // MARK: - Draw Command Batching
-    enum DrawBatchType: CaseIterable {
-        case none
-        case atlas
-        case primitive
-        case text
+    enum DrawBatchType: Int {
+        case none = 0
+        case atlas = 1
+        case primitive = 2
+        case text = 3
+        case count = 4
     }
     struct DrawBatch {
         var type: DrawBatchType
         var startIndex: Int
         var count: Int
     }
-    private var drawBatches: [DrawBatch]
+    private var drawBatchesPtr: UnsafeMutablePointer<DrawBatch>
     private var drawBatchCount: Int = 0
-    private let drawBatchMax: Int = 1024
+    private let drawBatchMaxCount: Int = 1024
     private var curDrawBatchType: DrawBatchType = .none
-    private var nextStartIndexForType: [DrawBatchType: Int]
+    // TODO: try (Int, Int, Int) = (0, 0, 0), see if that speeds things up.
+    private var nextStartIndexForTypePtr: UnsafeMutablePointer<Int>
+    private let strideSizesPtr: UnsafeMutablePointer<Int>
     
     
     
@@ -160,10 +158,16 @@ class Renderer: NSObject, MTKViewDelegate {
         assert(MemoryLayout<TextVertex>.stride == 32);
         
         self.inFlightSemaphore = DispatchSemaphore(value: Self.maxBuffersInFlight)
-        self.drawBatches = Array(repeating: DrawBatch(type: .none, startIndex: 0, count: 0), count: drawBatchMax)
-        self.nextStartIndexForType = [:]
-        for type in DrawBatchType.allCases { self.nextStartIndexForType[type] = 0 }
         
+        self.drawBatchesPtr = .allocate(capacity: self.drawBatchMaxCount)
+        self.nextStartIndexForTypePtr = .allocate(capacity: DrawBatchType.count.rawValue)
+        self.nextStartIndexForTypePtr.initialize(repeating: 0, count: DrawBatchType.count.rawValue)
+        self.strideSizesPtr = .allocate(capacity: DrawBatchType.count.rawValue)
+        self.strideSizesPtr.initialize(repeating: 0, count: DrawBatchType.count.rawValue)
+        self.strideSizesPtr[DrawBatchType.atlas.rawValue] = MemoryLayout<AtlasInstanceData>.stride
+        self.strideSizesPtr[DrawBatchType.primitive.rawValue] = MemoryLayout<PrimitiveInstanceData>.stride
+        self.strideSizesPtr[DrawBatchType.text.rawValue] = MemoryLayout<TextVertex>.stride
+
         guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
         self.device = device
         guard let cmdQueue = device.makeCommandQueue() else { fatalError("Unable to obtain MTLCommandQueue from MTLDevice") }
@@ -487,7 +491,7 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     private func testDrawPrimitives() {
-        let circleCount = 20000
+        let circleCount = 30000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         var color = SIMD4<Float>.zero
         
@@ -594,7 +598,7 @@ class Renderer: NSObject, MTKViewDelegate {
             
             self.updateTriBufferStates()
             drawBatchCount = 0
-            for type in DrawBatchType.allCases { self.nextStartIndexForType[type] = 0 }
+            for index in 0..<DrawBatchType.count.rawValue { self.nextStartIndexForTypePtr[index] = 0 }
             curDrawBatchType = .none
             atlasInstanceCount = 0
             primitiveInstanceCount = 0
@@ -611,10 +615,12 @@ class Renderer: NSObject, MTKViewDelegate {
                 encoder.label = "Primary Render Encoder"
                             
                 for batchIndex in 0..<drawBatchCount {
-                    let batch = self.drawBatches[batchIndex]
+                    let batch = self.drawBatchesPtr[batchIndex]
                     assert(batch.count > 0)
                     assert(batch.startIndex >= 0)
                     switch batch.type {
+                    case .count:
+                        fatalError("Draw Batch with type count, should never be implemented")
                     case .none:
                         fatalError("Draw Batch with type none")
                     case .atlas:
@@ -686,40 +692,39 @@ class Renderer: NSObject, MTKViewDelegate {
         return SIMD4(Float(r) * scale, Float(g) * scale, Float(b) * scale, Float(a) * scale)
     }
     
-    private func addToDrawBatchAndGetAdjustedIndex(type: DrawBatchType, increment: Int, startIndex: Int) -> Int {
-        var nextStartIndex: Int = nextStartIndexForType[type] ?? 0
-        if curDrawBatchType == type {
-            drawBatches[drawBatchCount - 1].count += increment
-        } else {
-            let strideSize: Int
-            let alignmentSize: Int = 256
-            switch curDrawBatchType {
-            case .none:
-                strideSize = alignmentSize
-            case .atlas:
-                strideSize = atlasInstanceDataStride
-            case .primitive:
-                strideSize = primitiveInstanceDataStride
-            case .text:
-                strideSize = textVertexDataStride
-            }
-            let offAlignment = nextStartIndex % (alignmentSize / strideSize)
-            if offAlignment != 0 {
-                nextStartIndex += (alignmentSize / strideSize) - offAlignment
-            }
-            assert(type == .atlas ? (nextStartIndex + increment) < atlasMaxInstanceCount : true)
-            assert(type == .primitive ? (nextStartIndex + increment) < primitiveMaxInstanceCount : true)
-            assert(type == .text ? (nextStartIndex + increment) < textMaxVertexCount : true)
-            
-            curDrawBatchType = type
-            drawBatches[drawBatchCount].type = type
-            drawBatches[drawBatchCount].startIndex = nextStartIndex
-            drawBatches[drawBatchCount].count = increment
-            drawBatchCount += 1
-            
+    /// NOTE: offsets must be 256 byte aligned on iOS platforms. Hence we pad the structs to be factor of 256, and then modulo to figure out the offsets
+    /// for the next starting index. We then store it for future reference. This has some over-head costs but is necessary in order to maintain the flexibility
+    /// of interleaved draw calls across the pipelines.
+    @inline(__always)
+    private func addToDrawBatchAndGetAdjustedIndex(type: DrawBatchType, increment: Int) -> Int {
+        var nextStartIndex: Int = nextStartIndexForTypePtr[type.rawValue]
+        let batchIndex = drawBatchCount
+        let curType = curDrawBatchType
+        
+        // Fast path: return early
+        if curType == type {
+            drawBatchesPtr[batchIndex - 1].count += increment
+            nextStartIndexForTypePtr[type.rawValue] = nextStartIndex + increment
+            return nextStartIndex
         }
         
-        nextStartIndexForType[type] = nextStartIndex + increment
+        // Infrequent path: switching types
+        let alignmentSize: Int = 256
+        let alignmentCount = alignmentSize / strideSizesPtr[type.rawValue]
+        let misalignment = nextStartIndex % alignmentCount
+        
+        if misalignment != 0 {
+            nextStartIndex += alignmentCount - misalignment
+        }
+        assert(type == .atlas ? (nextStartIndex + increment) < atlasMaxInstanceCount : true)
+        assert(type == .primitive ? (nextStartIndex + increment) < primitiveMaxInstanceCount : true)
+        assert(type == .text ? (nextStartIndex + increment) < textMaxVertexCount : true)
+        
+        curDrawBatchType = type
+        drawBatchesPtr[batchIndex] = DrawBatch(type: type, startIndex: nextStartIndex, count: increment)
+        drawBatchCount += 1
+        
+        nextStartIndexForTypePtr[type.rawValue] = nextStartIndex + increment
         return nextStartIndex
     }
     
@@ -729,7 +734,7 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     private func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
         // TODO: Handle if from another atlas
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .atlas, increment: 1, startIndex: atlasInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .atlas, increment: 1)
         let uvRect = mainAtlasUVRects[spriteName]!
         atlasInstancesPtr[index] = AtlasInstanceData(
             transform: projectionMatrix *
@@ -747,7 +752,7 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     private func drawPrimitiveCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
         primitiveInstancesPtr[index] = PrimitiveInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
@@ -761,7 +766,7 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     private func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
         primitiveInstancesPtr[index] = PrimitiveInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
@@ -790,7 +795,7 @@ class Renderer: NSObject, MTKViewDelegate {
         float4x4(rotationZ: angle) *
         float4x4(scaleX: length, scaleY: thickness)
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
         primitiveInstancesPtr[index] = PrimitiveInstanceData(
             transform: transform,
             color: color,
@@ -811,7 +816,7 @@ class Renderer: NSObject, MTKViewDelegate {
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
         primitiveInstancesPtr[index] = instance
         primitiveInstanceCount += 1
     }
@@ -825,7 +830,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
         primitiveInstancesPtr[index] = PrimitiveInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: color,
@@ -842,7 +847,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1, startIndex: primitiveInstanceCount)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
         primitiveInstancesPtr[index] = PrimitiveInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: color,
@@ -863,7 +868,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let vertices = buildMesh(for: text, posX: posX, posY: posY, withSize: fontSize, color: color)
         guard !vertices.isEmpty else { return }
         
-        let startIndex = addToDrawBatchAndGetAdjustedIndex(type: .text, increment: vertices.count, startIndex: textVertexCount)
+        let startIndex = addToDrawBatchAndGetAdjustedIndex(type: .text, increment: vertices.count)
         for index in 0..<vertices.count {
             textVertexBufferPtr[startIndex + index] = vertices[index]
         }
