@@ -22,6 +22,7 @@ struct PrimitiveInstanceData {
     float4 color;
     int shapeType;
     float4 sdfParams;
+    uint32_t __padding[4];
 };
 
 struct PrimitiveVOut {

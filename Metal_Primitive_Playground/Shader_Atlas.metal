@@ -21,6 +21,7 @@ struct AtlasInstanceData {
     float4 color;
     float2 atlasUVMin;
     float2 atlasUVMax;
+    uint32_t __padding[8];
 };
 
 struct AtlasVOut {
