@@ -151,7 +151,7 @@ class Renderer: NSObject, MTKViewDelegate {
     var time: Float = 0
     
     // MARK: - INIT
-    init(mtkView: MTKView) {
+    init?(mtkView: MTKView) {
         // TODO: Figure out how to assert the padding and stride of the shader structs too!
         assert(MemoryLayout<AtlasInstanceData>.stride == 128);
         assert(MemoryLayout<PrimitiveInstanceData>.stride == 128);
@@ -569,6 +569,7 @@ class Renderer: NSObject, MTKViewDelegate {
         testDrawSprites()
         testDrawTextWithBounds()
         
+        // TODO: Make this dynamically change every frame and animate around.
         drawSprite(spriteName: "player_2", x: 0, y: 0, width: 512, height: 512, color: SIMD4<Float>.one)
         drawPrimitiveCircle(x: -128, y: 0, radius: 256, color: [1,0,0,1])
         drawSprite(spriteName: "player_2", x: 0, y: 0, width: 256, height: 256, color: SIMD4<Float>.one)
@@ -578,6 +579,7 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveCircle(x: -32, y: 0, radius: 32, color: [0,1,0,1])
         drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
         
+        // TODO: Make this dynamically change every frame and animate around.
         drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
                  posX: -600, posY: 600, fontSize: 96, color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
                  

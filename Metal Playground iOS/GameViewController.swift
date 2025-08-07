@@ -16,6 +16,9 @@ class GameViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        let fpsLabel = FPSCounter(frame: CGRect(x: 20, y: 50, width: 80, height: 30))
+        view.addSubview(fpsLabel)
 
         guard let mtkView = view as? MTKView else {
             print("View of Gameview controller is not an MTKView")
@@ -31,7 +34,7 @@ class GameViewController: UIViewController {
         mtkView.device = defaultDevice
         mtkView.backgroundColor = UIColor.black
 
-        guard let newRenderer = Renderer(metalKitView: mtkView) else {
+        guard let newRenderer = Renderer(mtkView: mtkView) else {
             print("Renderer cannot be initialized")
             return
         }

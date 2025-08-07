@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "E6CECE492E44ECDC0005068C"
-               BuildableName = "Metal Playground.app"
-               BlueprintName = "Metal Playground"
+               BuildableName = "Metal Playground iOS.app"
+               BlueprintName = "Metal Playground iOS"
                ReferencedContainer = "container:Metal Playground.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,8 +45,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E6CECE492E44ECDC0005068C"
-            BuildableName = "Metal Playground.app"
-            BlueprintName = "Metal Playground"
+            BuildableName = "Metal Playground iOS.app"
+            BlueprintName = "Metal Playground iOS"
             ReferencedContainer = "container:Metal Playground.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -62,8 +62,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "E6CECE492E44ECDC0005068C"
-            BuildableName = "Metal Playground.app"
-            BlueprintName = "Metal Playground"
+            BuildableName = "Metal Playground iOS.app"
+            BlueprintName = "Metal Playground iOS"
             ReferencedContainer = "container:Metal Playground.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
