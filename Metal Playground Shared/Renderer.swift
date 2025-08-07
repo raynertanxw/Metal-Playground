@@ -564,27 +564,64 @@ class Renderer: NSObject, MTKViewDelegate {
                  color: [0.3, 0.2, 0.7, 1.0])
     }
     
-    private func updateGameState() {
+    private func testUpdateGameState() {
         testDrawPrimitives()
         testDrawSprites()
         testDrawTextWithBounds()
         
-        // TODO: Make this dynamically change every frame and animate around.
-        drawSprite(spriteName: "player_2", x: 0, y: 0, width: 512, height: 512, color: SIMD4<Float>.one)
-        drawPrimitiveCircle(x: -128, y: 0, radius: 256, color: [1,0,0,1])
-        drawSprite(spriteName: "player_2", x: 0, y: 0, width: 256, height: 256, color: SIMD4<Float>.one)
-        drawPrimitiveCircle(x: 128, y: 0, radius: 128, color: [0,1,1,1])
-        drawText(text: "Interleaved\nTest", posX: -50, posY: 50, fontSize: 48, color: SIMD4<Float>.one)
-        drawSprite(spriteName: "player_2", x: 0, y: 0, width: 128, height: 128, color: SIMD4<Float>.one)
-        drawPrimitiveCircle(x: -32, y: 0, radius: 32, color: [0,1,0,1])
-        drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
+        let wave1 = sin(time * 1.5) * 300
+        let wave2 = cos(time * 0.8) * 200
+        let wave3 = sin(time * 3.2) * 100
+        let circleX = sin(time * 2.0) * 256
+        let circleY = cos(time * 1.0) * 128
         
-        // TODO: Make this dynamically change every frame and animate around.
+        drawSprite(spriteName: "player_2",
+                   x: wave1,
+                   y: wave2,
+                   width: 256 + wave3,
+                   height: 256 + wave3,
+                   color: SIMD4<Float>.one)
+        
+        drawPrimitiveCircle(x: circleX,
+                            y: circleY,
+                            radius: 128 + sin(time * 4.0) * 64,
+                            color: [1, 0.3, 0.5, 1])
+        
+        drawSprite(spriteName: "player_2",
+                   x: -circleX,
+                   y: -circleY,
+                   width: 128,
+                   height: 128,
+                   color: SIMD4<Float>(1, 1, 1, 1))
+        
+        let textYOffset = sin(time * 1.2) * 40
+        drawText(text: "Dynamic Text\nis Alive!",
+                 posX: -200,
+                 posY: 300 + textYOffset,
+                 fontSize: 64 + sin(time * 2.5) * 8,
+                 color: SIMD4<Float>(1, 0.8, 0.2, 1))
+        
+                
+        drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
+
+        let scrollOffset = sin(time * 0.5) * 150
+        
         drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
-                 posX: -600, posY: 600, fontSize: 96, color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
-                 
+                 posX: -600 + scrollOffset,
+                 posY: 600,
+                 fontSize: 96,
+                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
+        
+        drawPrimitiveCircle(x: sin(time * 0.7) * 600,
+                            y: cos(time * 0.9) * 500,
+                            radius: 64,
+                            color: [0, 0.5, 0.5, 1])
+        
         drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
-                 posX: -900, posY: 100, fontSize: 96, color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
+                 posX: -900 - scrollOffset,
+                 posY: 100,
+                 fontSize: 96,
+                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
     }
     
     // MARK: - DRAW FUNCTION
@@ -608,7 +645,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
             
             time += 1.0 / Float(view.preferredFramesPerSecond)
-            self.updateGameState()
+            self.testUpdateGameState()
             
             /// Delay getting the currentRenderPassDescriptor until we absolutely need it to avoid
             ///   holding onto the drawable and blocking the display pipeline any longer than necessary
