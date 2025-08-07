@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E679A9172E33C80B001B2974"
-               BuildableName = "Metal_Primitive_Playground.app"
-               BlueprintName = "Metal_Primitive_Playground"
-               ReferencedContainer = "container:Metal_Primitive_Playground.xcodeproj">
+               BlueprintIdentifier = "E6CECE492E44ECDC0005068C"
+               BuildableName = "Metal Playground.app"
+               BlueprintName = "Metal Playground"
+               ReferencedContainer = "container:Metal Playground.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -29,30 +29,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E679A92D2E33C80C001B2974"
-               BuildableName = "Metal_Primitive_PlaygroundTests.xctest"
-               BlueprintName = "Metal_Primitive_PlaygroundTests"
-               ReferencedContainer = "container:Metal_Primitive_Playground.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E679A9372E33C80C001B2974"
-               BuildableName = "Metal_Primitive_PlaygroundUITests.xctest"
-               BlueprintName = "Metal_Primitive_PlaygroundUITests"
-               ReferencedContainer = "container:Metal_Primitive_Playground.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -68,10 +44,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E679A9172E33C80B001B2974"
-            BuildableName = "Metal_Primitive_Playground.app"
-            BlueprintName = "Metal_Primitive_Playground"
-            ReferencedContainer = "container:Metal_Primitive_Playground.xcodeproj">
+            BlueprintIdentifier = "E6CECE492E44ECDC0005068C"
+            BuildableName = "Metal Playground.app"
+            BlueprintName = "Metal Playground"
+            ReferencedContainer = "container:Metal Playground.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -85,10 +61,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E679A9172E33C80B001B2974"
-            BuildableName = "Metal_Primitive_Playground.app"
-            BlueprintName = "Metal_Primitive_Playground"
-            ReferencedContainer = "container:Metal_Primitive_Playground.xcodeproj">
+            BlueprintIdentifier = "E6CECE492E44ECDC0005068C"
+            BuildableName = "Metal Playground.app"
+            BlueprintName = "Metal Playground"
+            ReferencedContainer = "container:Metal Playground.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

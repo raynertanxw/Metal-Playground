@@ -6,43 +6,42 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXContainerItemProxy section */
-		E679A92F2E33C80C001B2974 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E679A9102E33C80B001B2974 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E679A9172E33C80B001B2974;
-			remoteInfo = Metal_Primitive_Playground;
-		};
-		E679A9392E33C80C001B2974 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E679A9102E33C80B001B2974 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E679A9172E33C80B001B2974;
-			remoteInfo = Metal_Primitive_Playground;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
-		E679A9182E33C80B001B2974 /* Metal_Primitive_Playground.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Metal_Primitive_Playground.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E679A92E2E33C80C001B2974 /* Metal_Primitive_PlaygroundTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Metal_Primitive_PlaygroundTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		E679A9382E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Metal_Primitive_PlaygroundUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E679A9182E33C80B001B2974 /* Metal Playground macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Metal Playground macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6CECE4A2E44ECDC0005068C /* Metal Playground iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Metal Playground iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E6CECE612E44EF860005068C /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Renderer.swift,
+				Shader_Atlas.metal,
+				Shader_Primitive.metal,
+				Shader_Text.metal,
+				Utils.swift,
+			);
+			target = E679A9172E33C80B001B2974 /* Metal Playground macOS */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		E679A91A2E33C80B001B2974 /* Metal_Primitive_Playground */ = {
+		E679A91A2E33C80B001B2974 /* Metal Playground macOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Metal_Primitive_Playground;
+			path = "Metal Playground macOS";
 			sourceTree = "<group>";
 		};
-		E679A9312E33C80C001B2974 /* Metal_Primitive_PlaygroundTests */ = {
+		E6CECE4B2E44ECDC0005068C /* Metal Playground iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Metal_Primitive_PlaygroundTests;
+			path = "Metal Playground iOS";
 			sourceTree = "<group>";
 		};
-		E679A93B2E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests */ = {
+		E6CECE602E44EEA00005068C /* Metal Playground Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Metal_Primitive_PlaygroundUITests;
+			exceptions = (
+				E6CECE612E44EF860005068C /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS" target */,
+			);
+			path = "Metal Playground Shared";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -55,14 +54,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E679A92B2E33C80C001B2974 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E679A9352E33C80C001B2974 /* Frameworks */ = {
+		E6CECE472E44ECDC0005068C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -75,9 +67,9 @@
 		E679A90F2E33C80B001B2974 = {
 			isa = PBXGroup;
 			children = (
-				E679A91A2E33C80B001B2974 /* Metal_Primitive_Playground */,
-				E679A9312E33C80C001B2974 /* Metal_Primitive_PlaygroundTests */,
-				E679A93B2E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests */,
+				E6CECE602E44EEA00005068C /* Metal Playground Shared */,
+				E679A91A2E33C80B001B2974 /* Metal Playground macOS */,
+				E6CECE4B2E44ECDC0005068C /* Metal Playground iOS */,
 				E679A9192E33C80B001B2974 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +77,8 @@
 		E679A9192E33C80B001B2974 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E679A9182E33C80B001B2974 /* Metal_Primitive_Playground.app */,
-				E679A92E2E33C80C001B2974 /* Metal_Primitive_PlaygroundTests.xctest */,
-				E679A9382E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests.xctest */,
+				E679A9182E33C80B001B2974 /* Metal Playground macOS.app */,
+				E6CECE4A2E44ECDC0005068C /* Metal Playground iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +86,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E679A9172E33C80B001B2974 /* Metal_Primitive_Playground */ = {
+		E679A9172E33C80B001B2974 /* Metal Playground macOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E679A9422E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal_Primitive_Playground" */;
+			buildConfigurationList = E679A9422E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal Playground macOS" */;
 			buildPhases = (
 				E679A9142E33C80B001B2974 /* Sources */,
 				E679A9152E33C80B001B2974 /* Frameworks */,
@@ -108,60 +99,37 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				E679A91A2E33C80B001B2974 /* Metal_Primitive_Playground */,
+				E679A91A2E33C80B001B2974 /* Metal Playground macOS */,
 			);
-			name = Metal_Primitive_Playground;
+			name = "Metal Playground macOS";
 			packageProductDependencies = (
 			);
 			productName = Metal_Primitive_Playground;
-			productReference = E679A9182E33C80B001B2974 /* Metal_Primitive_Playground.app */;
+			productReference = E679A9182E33C80B001B2974 /* Metal Playground macOS.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E679A92D2E33C80C001B2974 /* Metal_Primitive_PlaygroundTests */ = {
+		E6CECE492E44ECDC0005068C /* Metal Playground iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E679A9452E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal_Primitive_PlaygroundTests" */;
+			buildConfigurationList = E6CECE5F2E44ECDD0005068C /* Build configuration list for PBXNativeTarget "Metal Playground iOS" */;
 			buildPhases = (
-				E679A92A2E33C80C001B2974 /* Sources */,
-				E679A92B2E33C80C001B2974 /* Frameworks */,
-				E679A92C2E33C80C001B2974 /* Resources */,
+				E6CECE462E44ECDC0005068C /* Sources */,
+				E6CECE472E44ECDC0005068C /* Frameworks */,
+				E6CECE482E44ECDC0005068C /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				E679A9302E33C80C001B2974 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				E679A9312E33C80C001B2974 /* Metal_Primitive_PlaygroundTests */,
+				E6CECE4B2E44ECDC0005068C /* Metal Playground iOS */,
+				E6CECE602E44EEA00005068C /* Metal Playground Shared */,
 			);
-			name = Metal_Primitive_PlaygroundTests;
+			name = "Metal Playground iOS";
 			packageProductDependencies = (
 			);
-			productName = Metal_Primitive_PlaygroundTests;
-			productReference = E679A92E2E33C80C001B2974 /* Metal_Primitive_PlaygroundTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		E679A9372E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E679A9482E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal_Primitive_PlaygroundUITests" */;
-			buildPhases = (
-				E679A9342E33C80C001B2974 /* Sources */,
-				E679A9352E33C80C001B2974 /* Frameworks */,
-				E679A9362E33C80C001B2974 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				E679A93A2E33C80C001B2974 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				E679A93B2E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests */,
-			);
-			name = Metal_Primitive_PlaygroundUITests;
-			packageProductDependencies = (
-			);
-			productName = Metal_Primitive_PlaygroundUITests;
-			productReference = E679A9382E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
+			productName = "Metal Playground";
+			productReference = E6CECE4A2E44ECDC0005068C /* Metal Playground iOS.app */;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -176,17 +144,12 @@
 					E679A9172E33C80B001B2974 = {
 						CreatedOnToolsVersion = 16.4;
 					};
-					E679A92D2E33C80C001B2974 = {
+					E6CECE492E44ECDC0005068C = {
 						CreatedOnToolsVersion = 16.4;
-						TestTargetID = E679A9172E33C80B001B2974;
-					};
-					E679A9372E33C80C001B2974 = {
-						CreatedOnToolsVersion = 16.4;
-						TestTargetID = E679A9172E33C80B001B2974;
 					};
 				};
 			};
-			buildConfigurationList = E679A9132E33C80B001B2974 /* Build configuration list for PBXProject "Metal_Primitive_Playground" */;
+			buildConfigurationList = E679A9132E33C80B001B2974 /* Build configuration list for PBXProject "Metal Playground" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +163,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				E679A9172E33C80B001B2974 /* Metal_Primitive_Playground */,
-				E679A92D2E33C80C001B2974 /* Metal_Primitive_PlaygroundTests */,
-				E679A9372E33C80C001B2974 /* Metal_Primitive_PlaygroundUITests */,
+				E679A9172E33C80B001B2974 /* Metal Playground macOS */,
+				E6CECE492E44ECDC0005068C /* Metal Playground iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -215,14 +177,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E679A92C2E33C80C001B2974 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E679A9362E33C80C001B2974 /* Resources */ = {
+		E6CECE482E44ECDC0005068C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -239,14 +194,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E679A92A2E33C80C001B2974 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E679A9342E33C80C001B2974 /* Sources */ = {
+		E6CECE462E44ECDC0005068C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -254,19 +202,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		E679A9302E33C80C001B2974 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E679A9172E33C80B001B2974 /* Metal_Primitive_Playground */;
-			targetProxy = E679A92F2E33C80C001B2974 /* PBXContainerItemProxy */;
-		};
-		E679A93A2E33C80C001B2974 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E679A9172E33C80B001B2974 /* Metal_Primitive_Playground */;
-			targetProxy = E679A9392E33C80C001B2974 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		E679A9402E33C80C001B2974 /* Debug */ = {
@@ -327,9 +262,10 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Playground";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OBJC_BRIDGING_HEADER = Metal_Primitive_Playground/ShaderTypes.h;
+				SWIFT_OBJC_BRIDGING_HEADER = "Metal Playground Shared/ShaderTypes.h";
 				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -386,9 +322,10 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Playground";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OBJC_BRIDGING_HEADER = Metal_Primitive_Playground/ShaderTypes.h;
+				SWIFT_OBJC_BRIDGING_HEADER = "Metal Playground Shared/ShaderTypes.h";
 				SWIFT_OBJC_INTEROP_MODE = objcxx;
 			};
 			name = Release;
@@ -398,7 +335,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Metal_Primitive_Playground/Metal_Primitive_Playground.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Metal Playground macOS/Metal_Playground.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -413,8 +352,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Primitive-Playground";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -426,7 +365,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Metal_Primitive_Playground/Metal_Primitive_Playground.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Metal Playground macOS/Metal_Playground.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -441,86 +382,87 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Primitive-Playground";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
-		E679A9462E33C80C001B2974 /* Debug */ = {
+		E6CECE5D2E44ECDD0005068C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FW239ETS58;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.5;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = metal;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Primitive-PlaygroundTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(TARGET_NAME)/ShaderTypes.h";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Metal_Primitive_Playground.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Metal_Primitive_Playground";
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		E679A9472E33C80C001B2974 /* Release */ = {
+		E6CECE5E2E44ECDD0005068C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FW239ETS58;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.5;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UIRequiredDeviceCapabilities = metal;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Primitive-PlaygroundTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(TARGET_NAME)/ShaderTypes.h";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Metal_Primitive_Playground.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Metal_Primitive_Playground";
-			};
-			name = Release;
-		};
-		E679A9492E33C80C001B2974 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = FW239ETS58;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Primitive-PlaygroundUITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Metal_Primitive_Playground;
-			};
-			name = Debug;
-		};
-		E679A94A2E33C80C001B2974 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = FW239ETS58;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Primitive-PlaygroundUITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Metal_Primitive_Playground;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		E679A9132E33C80B001B2974 /* Build configuration list for PBXProject "Metal_Primitive_Playground" */ = {
+		E679A9132E33C80B001B2974 /* Build configuration list for PBXProject "Metal Playground" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E679A9402E33C80C001B2974 /* Debug */,
@@ -529,7 +471,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E679A9422E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal_Primitive_Playground" */ = {
+		E679A9422E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal Playground macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E679A9432E33C80C001B2974 /* Debug */,
@@ -538,20 +480,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E679A9452E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal_Primitive_PlaygroundTests" */ = {
+		E6CECE5F2E44ECDD0005068C /* Build configuration list for PBXNativeTarget "Metal Playground iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E679A9462E33C80C001B2974 /* Debug */,
-				E679A9472E33C80C001B2974 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		E679A9482E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal_Primitive_PlaygroundUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E679A9492E33C80C001B2974 /* Debug */,
-				E679A94A2E33C80C001B2974 /* Release */,
+				E6CECE5D2E44ECDD0005068C /* Debug */,
+				E6CECE5E2E44ECDD0005068C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
