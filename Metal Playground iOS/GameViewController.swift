@@ -38,6 +38,11 @@ class GameViewController: UIViewController {
             print("Renderer cannot be initialized")
             return
         }
+        newRenderer.onFramePresented = { fps in
+            DispatchQueue.main.async {
+                fpsLabel.updateFPS(fps)
+            }
+        }
 
         renderer = newRenderer
 

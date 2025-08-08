@@ -68,6 +68,13 @@ class Renderer: NSObject, MTKViewDelegate {
     private let inFlightSemaphore: DispatchSemaphore
     private var triBufferIndex = 0
     
+    // MARK: - For debugging
+    private var lastRenderTimestamp: CFTimeInterval = 0
+    private var renderFrameCount: Int = 0
+    var reportedFPS: Double = 0   // so GameViewController can read it
+    var onFramePresented: ((Double) -> Void)?
+
+    
     // MARK: - ATLAS PIPELINE VARS
     private var atlasPipelineState: MTLRenderPipelineState
     private var atlasVertexBuffer: MTLBuffer
@@ -711,6 +718,21 @@ class Renderer: NSObject, MTKViewDelegate {
                 encoder.endEncoding()
                 if let drawable = view.currentDrawable {
                     commandBuffer.present(drawable)
+                    
+                    // NOTE: For debugging
+                    let now = CACurrentMediaTime()
+                    if lastRenderTimestamp == 0 {
+                        lastRenderTimestamp = now
+                    }
+                    renderFrameCount += 1
+                    let delta = now - lastRenderTimestamp
+                    if delta >= 1.0 {
+                        reportedFPS = Double(renderFrameCount) / delta
+                        lastRenderTimestamp = now
+                        renderFrameCount = 0
+                    }
+                    
+                    onFramePresented?(reportedFPS)
                 }
             }
             

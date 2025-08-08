@@ -10,10 +10,6 @@ import UIKit
 
 // TODO: Expand to include more states, e.g. drawcalls, num instances, vertices, etc.
 class FPSCounter: UILabel {
-    private var displayLink: CADisplayLink?
-    private var lastTimestamp: CFTimeInterval = 0
-    private var frameCount: Int = 0
-
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
@@ -25,35 +21,18 @@ class FPSCounter: UILabel {
     }
 
     private func setup() {
+        backgroundColor = UIColor.black.withAlphaComponent(0.5)
         textColor = .white
-        backgroundColor = UIColor.black.withAlphaComponent(0.6)
         font = UIFont.monospacedDigitSystemFont(ofSize: 14, weight: .medium)
         textAlignment = .center
         layer.cornerRadius = 4
-        clipsToBounds = true
-
-        displayLink = CADisplayLink(target: self, selector: #selector(updateFPS))
-        displayLink?.add(to: .main, forMode: .common)
+        layer.masksToBounds = true
+        text = "FPS: --"
     }
 
-    @objc private func updateFPS(link: CADisplayLink) {
-        if lastTimestamp == 0 {
-            lastTimestamp = link.timestamp
-            return
-        }
-
-        frameCount += 1
-        let delta = link.timestamp - lastTimestamp
-
-        if delta >= 1.0 {
-            let fps = Double(frameCount) / delta
-            text = String(format: "FPS: %.0f", fps)
-            lastTimestamp = link.timestamp
-            frameCount = 0
-        }
-    }
-
-    deinit {
-        displayLink?.invalidate()
+    /// Call this from the renderer when FPS changes
+    func updateFPS(_ fps: Double) {
+        text = String(format: "FPS: %.0f", fps)
     }
 }
+
