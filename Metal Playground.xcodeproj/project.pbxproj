@@ -6,12 +6,31 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E606C6692E54AC2600986809 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E606C5FD2E547CC100986809 /* Metal.framework */; };
+		E606C66A2E54AC2A00986809 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E606C5FF2E547CC800986809 /* MetalKit.framework */; };
+		E606C66B2E54AC2E00986809 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E606C6032E547CE300986809 /* Foundation.framework */; };
+		E606C66C2E54AC3400986809 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E606C6012E547CD200986809 /* QuartzCore.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		E606C5FD2E547CC100986809 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		E606C5FF2E547CC800986809 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		E606C6012E547CD200986809 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		E606C6032E547CE300986809 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		E606C65B2E54ABA200986809 /* Metal Playground macOS CPP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Metal Playground macOS CPP.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E679A9182E33C80B001B2974 /* Metal Playground macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Metal Playground macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E6CECE4A2E44ECDC0005068C /* Metal Playground iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Metal Playground iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E606C6682E54ABE000986809 /* Exceptions for "Metal Playground macOS CPP" folder in "Metal Playground macOS CPP" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				README.md,
+			);
+			target = E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */;
+		};
 		E6CECE612E44EF860005068C /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -31,6 +50,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		E606C65C2E54ABA200986809 /* Metal Playground macOS CPP */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E606C6682E54ABE000986809 /* Exceptions for "Metal Playground macOS CPP" folder in "Metal Playground macOS CPP" target */,
+			);
+			path = "Metal Playground macOS CPP";
+			sourceTree = "<group>";
+		};
 		E679A91A2E33C80B001B2974 /* Metal Playground macOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Metal Playground macOS";
@@ -52,6 +79,17 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		E606C6582E54ABA200986809 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E606C66C2E54AC3400986809 /* QuartzCore.framework in Frameworks */,
+				E606C66B2E54AC2E00986809 /* Foundation.framework in Frameworks */,
+				E606C66A2E54AC2A00986809 /* MetalKit.framework in Frameworks */,
+				E606C6692E54AC2600986809 /* Metal.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E679A9152E33C80B001B2974 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -69,12 +107,25 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		E606C5FC2E547CC100986809 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				E606C6032E547CE300986809 /* Foundation.framework */,
+				E606C6012E547CD200986809 /* QuartzCore.framework */,
+				E606C5FF2E547CC800986809 /* MetalKit.framework */,
+				E606C5FD2E547CC100986809 /* Metal.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		E679A90F2E33C80B001B2974 = {
 			isa = PBXGroup;
 			children = (
 				E6CECE602E44EEA00005068C /* Metal Playground Shared */,
 				E679A91A2E33C80B001B2974 /* Metal Playground macOS */,
 				E6CECE4B2E44ECDC0005068C /* Metal Playground iOS */,
+				E606C65C2E54ABA200986809 /* Metal Playground macOS CPP */,
+				E606C5FC2E547CC100986809 /* Frameworks */,
 				E679A9192E33C80B001B2974 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -84,6 +135,7 @@
 			children = (
 				E679A9182E33C80B001B2974 /* Metal Playground macOS.app */,
 				E6CECE4A2E44ECDC0005068C /* Metal Playground iOS.app */,
+				E606C65B2E54ABA200986809 /* Metal Playground macOS CPP.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,6 +143,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E606C6642E54ABA300986809 /* Build configuration list for PBXNativeTarget "Metal Playground macOS CPP" */;
+			buildPhases = (
+				E606C6572E54ABA200986809 /* Sources */,
+				E606C6582E54ABA200986809 /* Frameworks */,
+				E606C6592E54ABA200986809 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E606C65C2E54ABA200986809 /* Metal Playground macOS CPP */,
+			);
+			name = "Metal Playground macOS CPP";
+			packageProductDependencies = (
+			);
+			productName = "Metal Playground macOS CPP";
+			productReference = E606C65B2E54ABA200986809 /* Metal Playground macOS CPP.app */;
+			productType = "com.apple.product-type.application";
+		};
 		E679A9172E33C80B001B2974 /* Metal Playground macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E679A9422E33C80C001B2974 /* Build configuration list for PBXNativeTarget "Metal Playground macOS" */;
@@ -146,6 +220,9 @@
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
+					E606C65A2E54ABA200986809 = {
+						CreatedOnToolsVersion = 16.4;
+					};
 					E679A9172E33C80B001B2974 = {
 						CreatedOnToolsVersion = 16.4;
 					};
@@ -170,11 +247,19 @@
 			targets = (
 				E679A9172E33C80B001B2974 /* Metal Playground macOS */,
 				E6CECE492E44ECDC0005068C /* Metal Playground iOS */,
+				E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		E606C6592E54ABA200986809 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E679A9162E33C80B001B2974 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -192,6 +277,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		E606C6572E54ABA200986809 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E679A9142E33C80B001B2974 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -209,6 +301,66 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		E606C6652E54ABA300986809 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FW239ETS58;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/metal-cpp-extensions",
+					"$(PROJECT_DIR)/metal-cpp",
+				);
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Playground-macOS-CPP";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E606C6662E54ABA300986809 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FW239ETS58;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/metal-cpp-extensions",
+					"$(PROJECT_DIR)/metal-cpp",
+				);
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tanxuewenrayner.Metal-Playground-macOS-CPP";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		E679A9402E33C80C001B2974 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -465,6 +617,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		E606C6642E54ABA300986809 /* Build configuration list for PBXNativeTarget "Metal Playground macOS CPP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E606C6652E54ABA300986809 /* Debug */,
+				E606C6662E54ABA300986809 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E679A9132E33C80B001B2974 /* Build configuration list for PBXProject "Metal Playground" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

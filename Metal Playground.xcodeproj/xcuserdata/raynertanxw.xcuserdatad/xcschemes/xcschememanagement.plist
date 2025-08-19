@@ -9,6 +9,11 @@
 			<key>orderHint</key>
 			<integer>1</integer>
 		</dict>
+		<key>Metal Playground macOS CPP.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>2</integer>
+		</dict>
 		<key>Metal Playground macOS.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
@@ -17,6 +22,16 @@
 	</dict>
 	<key>SuppressBuildableAutocreation</key>
 	<dict>
+		<key>E606C5F42E547C5700986809</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>E606C65A2E54ABA200986809</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
 		<key>E679A9172E33C80B001B2974</key>
 		<dict>
 			<key>primary</key>
