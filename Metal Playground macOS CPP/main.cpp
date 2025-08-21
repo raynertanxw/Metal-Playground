@@ -25,43 +25,27 @@
 #include <AppKit/AppKit.hpp>
 #include <MetalKit/MetalKit.hpp>
 
-#include <simd/simd.h>
+#include "Renderer.hpp"
 
 
 #pragma region Declarations {
 
-class Renderer
+
+class GameViewController : public MTK::ViewDelegate
 {
     public:
-        Renderer( MTL::Device* pDevice );
-        ~Renderer();
-        void buildShaders();
-        void buildBuffers();
-        void draw( MTK::View* pView );
-
-    private:
-        MTL::Device* _pDevice;
-        MTL::CommandQueue* _pCommandQueue;
-        MTL::RenderPipelineState* _pPSO;
-        MTL::Buffer* _pVertexPositionsBuffer;
-        MTL::Buffer* _pVertexColorsBuffer;
-};
-
-class MyMTKViewDelegate : public MTK::ViewDelegate
-{
-    public:
-        MyMTKViewDelegate( MTL::Device* pDevice );
-        virtual ~MyMTKViewDelegate() override;
+        GameViewController( MTL::Device* pDevice );
+        virtual ~GameViewController() override;
         virtual void drawInMTKView( MTK::View* pView ) override;
 
     private:
         Renderer* _pRenderer;
 };
 
-class MyAppDelegate : public NS::ApplicationDelegate
+class AppDelegate : public NS::ApplicationDelegate
 {
     public:
-        ~MyAppDelegate();
+        ~AppDelegate();
 
         NS::Menu* createMenuBar();
 
@@ -73,7 +57,7 @@ class MyAppDelegate : public NS::ApplicationDelegate
         NS::Window* _pWindow;
         MTK::View* _pMtkView;
         MTL::Device* _pDevice;
-        MyMTKViewDelegate* _pViewDelegate = nullptr;
+        GameViewController* _pViewDelegate = nullptr;
 };
 
 #pragma endregion Declarations }
@@ -83,7 +67,7 @@ int main( int argc, char* argv[] )
 {
     NS::AutoreleasePool* pAutoreleasePool = NS::AutoreleasePool::alloc()->init();
 
-    MyAppDelegate del;
+    AppDelegate del;
 
     NS::Application* pSharedApplication = NS::Application::sharedApplication();
     pSharedApplication->setDelegate( &del );
@@ -98,7 +82,7 @@ int main( int argc, char* argv[] )
 #pragma mark - AppDelegate
 #pragma region AppDelegate {
 
-MyAppDelegate::~MyAppDelegate()
+AppDelegate::~AppDelegate()
 {
     _pMtkView->release();
     _pWindow->release();
@@ -106,7 +90,7 @@ MyAppDelegate::~MyAppDelegate()
     delete _pViewDelegate;
 }
 
-NS::Menu* MyAppDelegate::createMenuBar()
+NS::Menu* AppDelegate::createMenuBar()
 {
     using NS::StringEncoding::UTF8StringEncoding;
 
@@ -148,7 +132,7 @@ NS::Menu* MyAppDelegate::createMenuBar()
     return pMainMenu->autorelease();
 }
 
-void MyAppDelegate::applicationWillFinishLaunching( NS::Notification* pNotification )
+void AppDelegate::applicationWillFinishLaunching( NS::Notification* pNotification )
 {
     NS::Menu* pMenu = createMenuBar();
     NS::Application* pApp = reinterpret_cast< NS::Application* >( pNotification->object() );
@@ -156,7 +140,7 @@ void MyAppDelegate::applicationWillFinishLaunching( NS::Notification* pNotificat
     pApp->setActivationPolicy( NS::ActivationPolicy::ActivationPolicyRegular );
 }
 
-void MyAppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification )
+void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification )
 {
     CGRect frame = (CGRect){ {100.0, 100.0}, {512.0, 512.0} };
 
@@ -172,7 +156,7 @@ void MyAppDelegate::applicationDidFinishLaunching( NS::Notification* pNotificati
     _pMtkView->setColorPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
     _pMtkView->setClearColor( MTL::ClearColor::Make( 1.0, 0.0, 0.0, 1.0 ) );
 
-    _pViewDelegate = new MyMTKViewDelegate( _pDevice );
+    _pViewDelegate = new GameViewController( _pDevice );
     _pMtkView->setDelegate( _pViewDelegate );
 
     _pWindow->setContentView( _pMtkView );
@@ -184,7 +168,7 @@ void MyAppDelegate::applicationDidFinishLaunching( NS::Notification* pNotificati
     pApp->activateIgnoringOtherApps( true );
 }
 
-bool MyAppDelegate::applicationShouldTerminateAfterLastWindowClosed( NS::Application* pSender )
+bool AppDelegate::applicationShouldTerminateAfterLastWindowClosed( NS::Application* pSender )
 {
     return true;
 }
@@ -195,156 +179,21 @@ bool MyAppDelegate::applicationShouldTerminateAfterLastWindowClosed( NS::Applica
 #pragma mark - ViewDelegate
 #pragma region ViewDelegate {
 
-MyMTKViewDelegate::MyMTKViewDelegate( MTL::Device* pDevice )
+GameViewController::GameViewController( MTL::Device* pDevice )
 : MTK::ViewDelegate()
 , _pRenderer( new Renderer( pDevice ) )
 {
 }
 
-MyMTKViewDelegate::~MyMTKViewDelegate()
+GameViewController::~GameViewController()
 {
     delete _pRenderer;
 }
 
-void MyMTKViewDelegate::drawInMTKView( MTK::View* pView )
+void GameViewController::drawInMTKView( MTK::View* pView )
 {
     _pRenderer->draw( pView );
 }
 
 #pragma endregion ViewDelegate }
 
-
-#pragma mark - Renderer
-#pragma region Renderer {
-
-Renderer::Renderer( MTL::Device* pDevice )
-: _pDevice( pDevice->retain() )
-{
-    _pCommandQueue = _pDevice->newCommandQueue();
-    buildShaders();
-    buildBuffers();
-}
-
-Renderer::~Renderer()
-{
-    _pVertexPositionsBuffer->release();
-    _pVertexColorsBuffer->release();
-    _pPSO->release();
-    _pCommandQueue->release();
-    _pDevice->release();
-}
-
-void Renderer::buildShaders()
-{
-    using NS::StringEncoding::UTF8StringEncoding;
-
-    const char* shaderSrc = R"(
-        #include <metal_stdlib>
-        using namespace metal;
-
-        struct v2f
-        {
-            float4 position [[position]];
-            half3 color;
-        };
-
-        v2f vertex vertexMain( uint vertexId [[vertex_id]],
-                               device const float3* positions [[buffer(0)]],
-                               device const float3* colors [[buffer(1)]] )
-        {
-            v2f o;
-            o.position = float4( positions[ vertexId ], 1.0 );
-            o.color = half3 ( colors[ vertexId ] );
-            return o;
-        }
-
-        half4 fragment fragmentMain( v2f in [[stage_in]] )
-        {
-            return half4( in.color, 1.0 );
-        }
-    )";
-
-    NS::Error* pError = nullptr;
-    MTL::Library* pLibrary = _pDevice->newLibrary( NS::String::string(shaderSrc, UTF8StringEncoding), nullptr, &pError );
-    if ( !pLibrary )
-    {
-        __builtin_printf( "%s", pError->localizedDescription()->utf8String() );
-        assert( false );
-    }
-
-    MTL::Function* pVertexFn = pLibrary->newFunction( NS::String::string("vertexMain", UTF8StringEncoding) );
-    MTL::Function* pFragFn = pLibrary->newFunction( NS::String::string("fragmentMain", UTF8StringEncoding) );
-
-    MTL::RenderPipelineDescriptor* pDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-    pDesc->setVertexFunction( pVertexFn );
-    pDesc->setFragmentFunction( pFragFn );
-    pDesc->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
-
-    _pPSO = _pDevice->newRenderPipelineState( pDesc, &pError );
-    if ( !_pPSO )
-    {
-        __builtin_printf( "%s", pError->localizedDescription()->utf8String() );
-        assert( false );
-    }
-
-    pVertexFn->release();
-    pFragFn->release();
-    pDesc->release();
-    pLibrary->release();
-}
-
-void Renderer::buildBuffers()
-{
-    const size_t NumVertices = 3;
-
-    simd::float3 positions[NumVertices] =
-    {
-        { -0.8f,  0.8f, 0.0f },
-        {  0.0f, -0.8f, 0.0f },
-        { +0.8f,  0.8f, 0.0f }
-    };
-
-    simd::float3 colors[NumVertices] =
-    {
-        {  1.0, 0.3f, 0.2f },
-        {  0.8f, 1.0, 0.0f },
-        {  0.8f, 0.0f, 1.0 }
-    };
-
-    const size_t positionsDataSize = NumVertices * sizeof( simd::float3 );
-    const size_t colorDataSize = NumVertices * sizeof( simd::float3 );
-
-    MTL::Buffer* pVertexPositionsBuffer = _pDevice->newBuffer( positionsDataSize, MTL::ResourceStorageModeManaged );
-    MTL::Buffer* pVertexColorsBuffer = _pDevice->newBuffer( colorDataSize, MTL::ResourceStorageModeManaged );
-
-    _pVertexPositionsBuffer = pVertexPositionsBuffer;
-    _pVertexColorsBuffer = pVertexColorsBuffer;
-
-    memcpy( _pVertexPositionsBuffer->contents(), positions, positionsDataSize );
-    memcpy( _pVertexColorsBuffer->contents(), colors, colorDataSize );
-
-    _pVertexPositionsBuffer->didModifyRange( NS::Range::Make( 0, _pVertexPositionsBuffer->length() ) );
-    _pVertexColorsBuffer->didModifyRange( NS::Range::Make( 0, _pVertexColorsBuffer->length() ) );
-}
-
-void Renderer::draw( MTK::View* pView )
-{
-    NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
-
-    MTL::CommandBuffer* pCmd = _pCommandQueue->commandBuffer();
-    MTL::RenderPassDescriptor* pRpd = pView->currentRenderPassDescriptor();
-    MTL::RenderCommandEncoder* pEnc = pCmd->renderCommandEncoder( pRpd );
-
-    pEnc->setRenderPipelineState( _pPSO );
-    pEnc->setVertexBuffer( _pVertexPositionsBuffer, 0, 0 );
-    pEnc->setVertexBuffer( _pVertexColorsBuffer, 0, 1 );
-    pEnc->drawPrimitives( MTL::PrimitiveType::PrimitiveTypeTriangle, NS::UInteger(0), NS::UInteger(3) );
-
-    pEnc->endEncoding();
-    pCmd->presentDrawable( pView->currentDrawable() );
-    pCmd->commit();
-
-    pPool->release();
-}
-
-#pragma endregion Renderer }
