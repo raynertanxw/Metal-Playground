@@ -67,11 +67,11 @@ void AppDelegate::applicationWillFinishLaunching( NS::Notification* pNotificatio
 
 void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification )
 {
-    CGRect frame = (CGRect){ {100.0, 100.0}, {512.0, 512.0} };
+    CGRect frame = (CGRect){ {100.0, 100.0}, {800.0, 600.0} };
 
     _pWindow = NS::Window::alloc()->init(
         frame,
-        NS::WindowStyleMaskClosable|NS::WindowStyleMaskTitled,
+        NS::WindowStyleMaskClosable|NS::WindowStyleMaskTitled|NS::WindowStyleMaskResizable,
         NS::BackingStoreBuffered,
         false );
 
@@ -81,7 +81,7 @@ void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification
     _pMtkView->setColorPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
     _pMtkView->setClearColor( MTL::ClearColor::Make( 1.0, 0.0, 0.0, 1.0 ) );
 
-    _pViewDelegate = new GameViewController( _pDevice );
+    _pViewDelegate = new GameViewController( _pDevice, _pMtkView );
     _pMtkView->setDelegate( _pViewDelegate );
 
     _pWindow->setContentView( _pMtkView );

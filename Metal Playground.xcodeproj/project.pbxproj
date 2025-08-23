@@ -31,6 +31,20 @@
 			);
 			target = E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */;
 		};
+		E6360C0D2E56DC9800784A64 /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS CPP" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Assets.xcassets,
+				Resources/main_atlas.png,
+				Resources/main_atlas.txt,
+				Resources/roboto.json,
+				Resources/roboto.png,
+				Shader_Atlas.metal,
+				Shader_Primitive.metal,
+				Shader_Text.metal,
+			);
+			target = E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */;
+		};
 		E6CECE612E44EF860005068C /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -72,6 +86,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				E6CECE612E44EF860005068C /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS" target */,
+				E6360C0D2E56DC9800784A64 /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS CPP" target */,
 			);
 			path = "Metal Playground Shared";
 			sourceTree = "<group>";

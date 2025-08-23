@@ -12,13 +12,15 @@
 
 class GameViewController : public MTK::ViewDelegate
 {
-    public:
-        GameViewController( MTL::Device* pDevice );
-        virtual ~GameViewController() override;
-        virtual void drawInMTKView( MTK::View* pView ) override;
-
-    private:
-        Renderer* _pRenderer;
+public:
+    GameViewController( MTL::Device* pDevice, MTK::View* pView );
+    virtual ~GameViewController() override;
+    virtual void drawInMTKView( MTK::View* pView ) override;
+    virtual void drawableSizeWillChange( MTK::View* pView, CGSize size ) override;
+    
+    
+private:
+    Renderer* _pRenderer;
 };
 
 

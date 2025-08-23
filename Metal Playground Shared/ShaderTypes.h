@@ -7,15 +7,19 @@
 
 #ifndef ShaderTypes_h
 #define ShaderTypes_h
-
+// Metal Shaders
 #ifdef __METAL_VERSION__
 #define NS_ENUM(_type, _name) enum _name : _type _name; enum _name : _type
 typedef metal::int32_t EnumBackingType;
-#else
+// Swift (Objective-C)
+#elif defined(__OBJC__)
 #import <Foundation/Foundation.h>
 typedef NSInteger EnumBackingType;
+// C++ (metal-cpp)
+#else
+#define NS_ENUM(_type, _name) enum _name : _type _name; enum _name : _type
+typedef int32_t EnumBackingType;
 #endif
-
 typedef NS_ENUM(EnumBackingType, ShapeType) {
     ShapeTypeNone = 0,
     ShapeTypeRect = 1,
@@ -30,22 +34,17 @@ typedef NS_ENUM(EnumBackingType, BufferIndex) {
     BufferIndexInstances = 1,
     BufferIndexUniforms = 2,
 };
-
 typedef NS_ENUM(EnumBackingType, TextBufferIndex) {
     TextBufferIndexVertices = 0,
     TextBufferIndexProjectionMatrix = 1,
 };
-
 typedef NS_ENUM(EnumBackingType, AtlasVertAttr) {
     AtlasVertAttrPosition = 0,
     AtlasVertAttrUV = 1,
 };
-
 typedef NS_ENUM(EnumBackingType, TextVertAttr) {
     TextVertAttrPosition = 0,
     TextVertAttrUV = 1,
     TextVertAttrTextColor = 2,
 };
-
-
 #endif /* ShaderTypes_h */
