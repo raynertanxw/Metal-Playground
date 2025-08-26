@@ -870,15 +870,13 @@ class Renderer: NSObject, MTKViewDelegate {
         drawPrimitiveRect(x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     private func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
-        let instance = PrimitiveInstanceData(
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
+        primitiveInstancesPtr[index] = PrimitiveInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
             color: color,
             shapeType: ShapeType.rect.rawValue,
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
-        
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = instance
         primitiveInstanceCount += 1
     }
     

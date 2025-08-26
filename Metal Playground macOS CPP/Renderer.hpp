@@ -180,9 +180,25 @@ private:
     // MARK: - Draw Helpers
     inline int addToDrawBatchAndGetAdjustedIndex(DrawBatchType type, int increment);
     
-    void drawPrimitiveCircle(float x, float y, float radius,
-                             UInt8 r, UInt8 g, UInt8 b, UInt8 a);
+    void drawPrimitiveCircle(float x, float y, float radius, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
     void drawPrimitiveCirlce(float x, float y, float radius, simd_float4 color);
+    
+    void drawPrimitiveCircleLines(float x, float y, float radius, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
+    void drawPrimitiveCircleLines(float x, float y, float radius, float thickness, simd_float4 color);
+    
+    void drawPrimitiveLine(float x1, float y1, float x2, float y2, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
+    void drawPrimitiveLine(float x1, float y1, float x2, float y2, float thickness, simd_float4 color);
+    
+    void drawPrimitiveRect(float x, float y, float width, float height, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
+    void drawPrimitiveRect(float x, float y, float width, float height, simd_float4 color);
+    
+    void drawPrimitiveRoundedRect(float x, float y, float width, float height, float cornerRadius, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
+    void drawPrimitiveRoundedRect(float x, float y, float width, float height, float cornerRadius, simd_float4 color);
+    
+    void drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
+    void drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, simd_float4 color);
+    
+    // TODO: Text Drawing Functions
 };
 
 #endif /* Renderer_hpp */

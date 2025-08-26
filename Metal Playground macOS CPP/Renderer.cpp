@@ -398,6 +398,30 @@ void Renderer::testDrawPrimitives() {
         
         drawPrimitiveCirlce(x, y, radius, color);
     }
+    
+//    drawPrimitiveCircle(0, 0, 50, 0, 255, 255, 255);
+//    drawPrimitiveCircle(0, 0, 800.0, 255, 255, 255, 64);
+//    drawPrimitiveCircle(0, 0, 512.0, 0, 255, 255, 64);
+//    drawPrimitiveCircle(0, 0, 256.0, 255, 0, 255, 64);
+//    drawPrimitiveCircle(256, 256, 128.0, 255, 0, 0, 64);
+//    drawPrimitiveCircle(0, 0, 128.0, 0, 255, 0, 64);
+//    drawPrimitiveCircle(-256, -256, 128.0, 0, 0, 255, 64);
+//    drawPrimitiveLine(-800, -600, 800, 600, 10, 200, 100, 0, 128);
+//    drawPrimitiveRectLines(0, 0, 800, 600, 48, 0, 255, 255, 255);
+//    drawPrimitiveRect(0, 0, 800, 600, 255, 0, 0, 64);
+//    drawPrimitiveRect(-800, -600, 800, 600, 255, 0, 0, 64);
+//    drawPrimitiveRect(0, 0, 24, 600, 255, 0, 0, 64);
+//    drawPrimitiveRect(0, 0, 128, 196, 0, 255, 0, 128);
+//    drawPrimitiveRect(-800, -600, 800, 600, 128, 255, 0, 128);
+//    drawPrimitiveRect(-800, -600, 1600, 1200, 0, 255, 255, 32);
+//    drawPrimitiveRoundedRect(0, 0, 800, 600, 100, 0, 0, 255, 255);
+//    drawPrimitiveRoundedRect(0, 0, 800, 100, 100, 0, 255, 255, 255);
+//    drawPrimitiveCircle(100, 100, 100, 255, 0, 0, 128);
+//    drawPrimitiveRect(-600, -600, 1200, 1200, 255, 0, 255, 255);
+//    drawPrimitiveCircle(0, 0, 600, 255, 255, 255, 255);
+//    drawPrimitiveCircleLines(0, 0, 600, 48, 255, 0, 255, 128);
+//    drawPrimitiveRect(-600, -600, 48, 1200, 0, 255, 0, 128);
+
 }
 
 void Renderer::draw( MTK::View* pView )
@@ -422,7 +446,6 @@ void Renderer::draw( MTK::View* pView )
         time += 1.0 / pView->preferredFramesPerSecond();
         // TODO TEST DRAW CODE HERE
         testDrawPrimitives();
-        drawPrimitiveCircle(0, 0, 50, 0, 255, 255, 255);
 
         MTL::RenderPassDescriptor* renderPassDesc = pView->currentRenderPassDescriptor();
         MTL::RenderCommandEncoder* encoder = cmdBuffer->renderCommandEncoder(renderPassDesc);
@@ -564,11 +587,110 @@ void Renderer::drawPrimitiveCirlce(float x, float y, float radius, simd_float4 c
         .transform = simd_mul(makeTranslate(x, y), makeScale(radius * 2)),
         .color = color,
         .shapeType = ShapeTypeCircle,
-        .sdfParams = (simd_float4){radius, 0.5, 0, 0} // hardcode edge softness to 0.5
+        .sdfParams = (simd_float4){radius, 0.5f, 0.0f, 0.0f} // hardcode edge softness to 0.5
     };
     ++primitiveInstanceCount;
 }
-// TODO: Implement the rest of the primitive drawing functions
+
+void Renderer::drawPrimitiveCircleLines(float x, float y, float radius, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+{
+    drawPrimitiveCircleLines(x, y, radius, thickness, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawPrimitiveCircleLines(float x, float y, float radius, float thickness, simd_float4 color)
+{
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
+    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
+        .transform = simd_mul(makeTranslate(x, y), makeScale(radius * 2)),
+        .color = color,
+        .shapeType = ShapeTypeCircleLines,
+        .sdfParams = (simd_float4){radius, 0.5f, thickness / 2.0f, 0.0f}
+    };
+    ++primitiveInstanceCount;
+}
+    
+void Renderer::drawPrimitiveLine(float x1, float y1, float x2, float y2, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+{
+    drawPrimitiveLine(x1, y1, x2, y2, thickness, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawPrimitiveLine(float x1, float y1, float x2, float y2, float thickness, simd_float4 color)
+{
+    const float dx = x2 - x1;
+    const float dy = y2 - y1;
+    const float length = sqrt(dx * dx + dy * dy);
+    const float angle = atan2(dy, dx);
+    
+    // Center between endpoints
+    const float cx = (x1 + x2) * 0.5f;
+    const float cy = (y1 + y2) * 0.5f;
+    
+    // Build transform: scale -> rotate -> translate
+    // Multiple: translate * rotation * scale
+    const simd_float4x4 transform = simd_mul(makeTranslate(cx, cy), simd_mul(makeRotationZ(angle), makeScale(length, thickness)));
+    
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
+    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
+        .transform = transform,
+        .color = color,
+        .shapeType = ShapeTypeRect,
+        .sdfParams = (simd_float4){0.0f, 0.0f, 0.0f, 0.0f}
+    };
+    ++primitiveInstanceCount;
+}
+    
+void Renderer::drawPrimitiveRect(float x, float y, float width, float height, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+{
+    drawPrimitiveRect(x, y, width, height, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawPrimitiveRect(float x, float y, float width, float height, simd_float4 color)
+{
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
+    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
+        .transform = simd_mul(makeTranslate(x + (width / 2.0f), y + (height / 2.0f)), makeScale(width, height)),
+        .color = color,
+        .shapeType = ShapeTypeRect,
+        .sdfParams = (simd_float4){0.0f, 0.0f, 0.0f, 0.0f}
+    };
+    ++primitiveInstanceCount;
+}
+
+void Renderer::drawPrimitiveRoundedRect(float x, float y, float width, float height, float cornerRadius, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+{
+    drawPrimitiveRoundedRect(x, y, width, height, cornerRadius, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawPrimitiveRoundedRect(float x, float y, float width, float height, float cornerRadius, simd_float4 color)
+{
+    const float halfWidth = width / 2.0f;
+    const float halfHeight = height / 2.0f;
+    
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
+    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
+        .transform = simd_mul(makeTranslate(x + halfWidth, y + halfHeight), makeScale(width, height)),
+        .color = color,
+        .shapeType = ShapeTypeRoundedRect,
+        .sdfParams = (simd_float4){halfWidth, halfHeight, cornerRadius, 0.0f}
+    };
+    ++primitiveInstanceCount;
+}
+
+void Renderer::drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+{
+    drawPrimitiveRectLines(x, y, width, height, thickness, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, simd_float4 color)
+{
+    const float halfWidth = width / 2.0f;
+    const float halfHeight = height / 2.0f;
+    
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
+    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
+        .transform = simd_mul(makeTranslate(x + halfWidth, y + halfHeight), makeScale(width, height)),
+        .color = color,
+        .shapeType = ShapeTypeRectLines,
+        .sdfParams = (simd_float4){halfWidth, halfHeight, thickness, 0.0f}
+    };
+    ++primitiveInstanceCount;
+}
+
 // TODO: Implement the text drawing functions
 
 
