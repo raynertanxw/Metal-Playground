@@ -74,16 +74,6 @@ public:
     std::function<void(double)> onFramePresented = nullptr;
 
 private:
-    // TODO: Clean up the template functions and variables.
-    MTL::Device* _pDevice;
-    MTL::CommandQueue* _pCommandQueue;
-    MTL::RenderPipelineState* _pPSO;
-    MTL::Buffer* _pVertexPositionsBuffer;
-    MTL::Buffer* _pVertexColorsBuffer;
-    void buildShaders();
-    void buildBuffers();
-    
-    // My actual from Renderer
     simd_float4x4 projectionMatrix = matrix_identity_float4x4;
     CGSize screenSize = {0.0f, 0.0f};
     
