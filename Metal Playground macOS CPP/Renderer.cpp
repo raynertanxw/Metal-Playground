@@ -7,10 +7,14 @@
 
 // TODO: Cache all the sizeof stride sizes
 
-#include "Renderer.hpp"
 #include <cassert>
+#include <fstream>
+#include <sstream>
+#include "Renderer.hpp"
 #include "ShaderTypes.h"
 #include "ii_random.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 // MARK: - Math Helpers
 static inline simd_float4x4 makeTranslate(float tx, float ty)
@@ -269,9 +273,123 @@ void Renderer::buildTextPipeline(MTL::PixelFormat pixelFormat)
 
 void Renderer::loadAtlasTextureAndUV()
 {
-    // "main_atlas", 256, 256
-    // TODO: Load up mainAtlasTexture and the UVs
-    // Problem is that TextureLoader is not implemented in metal-cpp.
+    using namespace std;
+    
+    int mainAtlasTWidth = 256;
+    int mainAtlasTHeight = 256;
+    std::string filename = "main_atlas";
+    
+    // TODO: Check all the filename releases!
+    std::string imageFileUrl;
+    std::string uvFileUrl;
+    
+    CFStringRef cf_atlasName = CFStringCreateWithCString(kCFAllocatorDefault, filename.c_str(), kCFStringEncodingUTF8);
+    CFStringRef cf_rscTxt = CFSTR("txt");
+    CFStringRef cf_rscPng = CFSTR("png");
+    
+    CFURLRef cf_imageUrl = CFBundleCopyResourceURL(CFBundleGetMainBundle(), cf_atlasName, cf_rscPng, nullptr);
+    CFURLRef cf_uvUrl = CFBundleCopyResourceURL(CFBundleGetMainBundle(), cf_atlasName, cf_rscTxt, nullptr);
+    
+    CFRelease(cf_atlasName);
+    CFRelease(cf_rscPng);
+    CFRelease(cf_rscTxt);
+    
+    
+    { // TODO: Extract this out into a CF Helper function utils or something.
+        CFStringRef path = CFURLCopyFileSystemPath(cf_uvUrl, kCFURLPOSIXPathStyle);
+        assert(path);
+        
+        const char* cPath = CFStringGetCStringPtr(path, kCFStringEncodingUTF8);
+        
+        if (cPath) {
+            uvFileUrl = std::string(cPath);
+        } else {
+            // Fallback
+            CFIndex length = CFStringGetLength(path);
+            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+            char* buffer = new char[maxSize];
+            if (CFStringGetCString(path, buffer, maxSize, kCFStringEncodingUTF8)) {
+                uvFileUrl = std::string(buffer);
+            }
+            delete[] buffer;
+        }
+        
+        CFRelease(path);
+    }
+    
+    { // TODO: Extract this out into a CF Helper function utils or something.
+        CFStringRef path = CFURLCopyFileSystemPath(cf_imageUrl, kCFURLPOSIXPathStyle);
+        assert(path);
+        
+        const char* cPath = CFStringGetCStringPtr(path, kCFStringEncodingUTF8);
+        
+        if (cPath) {
+            imageFileUrl = std::string(cPath);
+        } else {
+            // Fallback
+            CFIndex length = CFStringGetLength(path);
+            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+            char* buffer = new char[maxSize];
+            if (CFStringGetCString(path, buffer, maxSize, kCFStringEncodingUTF8)) {
+                imageFileUrl = std::string(buffer);
+            }
+            delete[] buffer;
+        }
+        
+        CFRelease(path);
+    }
+
+    
+    
+    
+    
+    
+    
+    // Load the Texture data
+    MTL::TextureDescriptor* textureDesc = MTL::TextureDescriptor::alloc()->init();
+    
+    textureDesc->setWidth(mainAtlasTWidth);
+    textureDesc->setHeight(mainAtlasTHeight);
+    textureDesc->setPixelFormat( MTL::PixelFormatRGBA8Unorm );
+    textureDesc->setTextureType( MTL::TextureType2D );
+    textureDesc->setStorageMode( MTL::StorageModeManaged );
+    textureDesc->setUsage( MTL::ResourceUsageSample | MTL::ResourceUsageRead );
+
+    mainAtlasTexture = device->newTexture(textureDesc);
+    
+    int numChannels = 4;
+    unsigned char* mainAtlasImageData = stbi_load(imageFileUrl.c_str(), &mainAtlasTWidth, &mainAtlasTHeight, &numChannels, 0);
+
+    mainAtlasTexture->replaceRegion( MTL::Region( 0, 0, 0, mainAtlasTWidth, mainAtlasTHeight, 1 ), 0, (uint8_t*)mainAtlasImageData, mainAtlasTWidth * 4 );
+    textureDesc->release();
+    
+    
+    // Load the UV data
+    std::ifstream file(uvFileUrl);
+    
+    assert(file.is_open());
+    
+    std::string line;
+    
+    // Skip the first line (count line)
+    std::getline(file, line);
+    
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        
+        std::istringstream iss(line);
+        std::string name;
+        float x, y, w, h;
+        
+        if (iss >> name >> x >> y >> w >> h) {
+            simd::float2 minUV = {x / mainAtlasTWidth, y / mainAtlasTHeight};
+            simd::float2 maxUV = {(x + w) / mainAtlasTWidth, (y + h) / mainAtlasTHeight};
+            
+            mainAtlasUVRects[name] = {minUV, maxUV};
+            __builtin_printf("name: %s, (%0.f, %0.f), w:%0.f, h%0.f\n", name.c_str(), x, y, w, h);
+        }
+    }
+    file.close();
 }
 
 void Renderer::testDrawPrimitives() {
@@ -317,6 +435,32 @@ void Renderer::testDrawPrimitives() {
 
 }
 
+void Renderer::testDrawAtlasSprites()
+{
+    // TODO: Fix the issue of overly exposed looking atlas sprites.
+    const int testMaxCount = 100;
+    const int testCount = MIN
+    ((int)((sin(time * 2.0f) + 1.0f) / 2.0f * testMaxCount),
+     atlasMaxInstanceCount - 1);
+    
+    simd_float4 color;
+    for (int i = 0; i < testCount; ++i) {
+        const float angle = time + ((float)i) * (2.0f * M_PI / ((float)testCount));
+        const float radius = ((float)screenSize.width) / 3.0f;
+        color.x = 0.5f + 0.5f * sin(angle);
+        color.y = 0.5f + 0.5f * cos(angle);
+        color.z = 0.5f + 0.5f * sin(angle * 0.5f);
+        color.w = 1.0f;
+        
+        drawSprite("Circle_White", cos(angle) * radius, sin(angle) * radius, 100.0f + 100.0f * sin(angle), 100.0f + 100.0f * sin(angle), color, angle * 2);
+    }
+    
+    { // Test anything static here, adds to last insance count
+        const char* spriteName = "player_1";
+        drawSprite(spriteName, 100, 100, 256, 256, colorFromBytes(255, 255, 255, 255), 0.0f);
+    }
+}
+
 void Renderer::draw( MTK::View* pView )
 {
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
@@ -339,6 +483,7 @@ void Renderer::draw( MTK::View* pView )
         time += 1.0 / pView->preferredFramesPerSecond();
         // TODO TEST DRAW CODE HERE
         testDrawPrimitives();
+        testDrawAtlasSprites();
 
         MTL::RenderPassDescriptor* renderPassDesc = pView->currentRenderPassDescriptor();
         MTL::RenderCommandEncoder* encoder = cmdBuffer->renderCommandEncoder(renderPassDesc);
@@ -394,19 +539,6 @@ void Renderer::draw( MTK::View* pView )
         cmdBuffer->commit();
     }
     
-//    MTL::CommandBuffer* pCmd = _pCommandQueue->commandBuffer();
-//    MTL::RenderPassDescriptor* pRpd = pView->currentRenderPassDescriptor();
-//    MTL::RenderCommandEncoder* pEnc = pCmd->renderCommandEncoder( pRpd );
-//
-//    pEnc->setRenderPipelineState( _pPSO );
-//    pEnc->setVertexBuffer( _pVertexPositionsBuffer, 0, 0 );
-//    pEnc->setVertexBuffer( _pVertexColorsBuffer, 0, 1 );
-//    pEnc->drawPrimitives( MTL::PrimitiveType::PrimitiveTypeTriangle, NS::UInteger(0), NS::UInteger(3) );
-//
-//    pEnc->endEncoding();
-//    pCmd->presentDrawable( pView->currentDrawable() );
-//    pCmd->commit();
-
     pPool->release();
 }
 
@@ -418,7 +550,7 @@ void Renderer::drawableSizeWillChange( MTK::View* pView, CGSize size )
     primitiveUniforms = (PrimitiveUniforms){projectionMatrix};
 }
 
-static inline simd_float4 colorFromBytes(UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+inline simd_float4 Renderer::colorFromBytes(UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
     const float scale = 1.0 / 255.0;
     return {
         (float)r * scale,
@@ -465,7 +597,27 @@ inline int Renderer::addToDrawBatchAndGetAdjustedIndex(DrawBatchType type, int i
     return nextStartIndex;
 }
 
-// TODO: Atlas Drawing Functions
+// MARK: - Atlas Drawing Functions
+void Renderer::drawSprite(const char* spriteName, float x, float y, float width, float height, UInt8 r, UInt8 g, UInt8 b, UInt8 a, float rotationRadians)
+{
+    drawSprite(spriteName, x, y, width, height, colorFromBytes(r, g, b, a), rotationRadians);
+}
+void Renderer::drawSprite(const char* spriteName, float x, float y, float width, float height, simd_float4 color, float rotationRadians)
+{
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_atlas, 1);
+    atlasInstancesPtr[index] = (AtlasInstanceData){
+        .transform =
+        simd_mul(projectionMatrix,
+                 simd_mul(makeTranslate(x, y),
+                          simd_mul(makeRotationZ(rotationRadians),
+                                   makeScale(width, height)))),
+        .color = color,
+        .uvMin = mainAtlasUVRects[spriteName].minUV,
+        .uvMax = mainAtlasUVRects[spriteName].maxUV
+    };
+    ++atlasInstanceCount;
+}
+
 
 // MARK: - Primitive Drawing Functions
 void Renderer::drawPrimitiveCircle(float x, float y, float radius,
