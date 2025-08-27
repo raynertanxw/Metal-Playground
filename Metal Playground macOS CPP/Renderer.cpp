@@ -437,8 +437,7 @@ void Renderer::testDrawPrimitives() {
 
 void Renderer::testDrawAtlasSprites()
 {
-    // TODO: Fix the issue of overly exposed looking atlas sprites.
-    const int testMaxCount = 100;
+    const int testMaxCount = 10;
     const int testCount = MIN
     ((int)((sin(time * 2.0f) + 1.0f) / 2.0f * testMaxCount),
      atlasMaxInstanceCount - 1);
