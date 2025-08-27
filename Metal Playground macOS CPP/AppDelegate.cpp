@@ -78,7 +78,7 @@ void AppDelegate::applicationDidFinishLaunching( NS::Notification* pNotification
     _pDevice = MTL::CreateSystemDefaultDevice();
 
     _pMtkView = MTK::View::alloc()->init( frame, _pDevice );
-    _pMtkView->setColorPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
+    _pMtkView->setColorPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm );
     _pMtkView->setClearColor( MTL::ClearColor::Make( 0.0, 0.0, 0.0, 1.0 ) );
 
     _pViewDelegate = new GameViewController( _pDevice, _pMtkView );
