@@ -58,6 +58,55 @@ struct TextFragmentUniforms {
     float distanceRange;
 };
 
+// MARK: - Font Atlas Structs
+// TODO: Check, need to load this as a codable from the JSON...
+// TODO: Consider changing all doubles to floats
+struct AtlasMetrics {
+    const char* type;
+    const double distanceRange;
+    const double size;
+    const int width;
+    const int height;
+    const char* yOrigin;
+};
+
+struct FontMetrics {
+    const double emSize;
+    const double lineHeight;
+    const double ascender;
+    const double descender;
+    const double underlineY;
+    const double underlineThickness;
+};
+
+struct Bounds {
+    const double left;
+    const double bottom;
+    const double right;
+    const double top;
+};
+
+struct Glyph {
+    const int unicode;
+    const double advance;
+    // TODO: Double check if this needs to be nill later
+    const Bounds planeBounds;
+    const Bounds atlasBounds;
+};
+
+struct Kerning {
+    const int unicode1;
+    const int unicode2;
+    const double advance;
+};
+
+struct FontAtlas {
+    const AtlasMetrics atlas;
+    const FontMetrics metrics;
+    const Glyph* glyphs;
+    const Kerning* kerning;
+};
+
 class Renderer
 {
 public:
@@ -127,8 +176,21 @@ private:
     
     
     
-    // TODO: TEXT PIPELINE VARS
-
+    // MARK: - TEXT PIPELINE VARS
+    MTL::Texture* fontTexture;
+    // TODO: Renable this later.
+    //    FontAtlas fontAtlas;
+    std::map<UInt32, Glyph> fontGlyphs;
+    std::map<UInt64, Kerning> fontKerning;
+    
+    MTL::RenderPipelineState* textPipelineState;
+    MTL::SamplerState* textSamplerState;
+    MTL::Buffer* textTriVertexBuffer;
+    const int textMaxVertexCount = 4096 * 6;
+    int textTriInstanceBufferOffset = 0;
+    TextVertex* textVertexBufferPtr = nullptr;
+    int textVertexCount = 0;
+    
     
     // MARK: - Draw Command Batching
     enum DrawBatchType {
@@ -163,6 +225,7 @@ private:
     void buildPrimitivePipeline(MTL::PixelFormat pixelFormat);
     void buildTextPipeline(MTL::PixelFormat pixelFormat);
     void loadAtlasTextureAndUV();
+    void loadTextInfoAndTexture();
     
     // MARK: - Test functions
     void testDrawPrimitives();

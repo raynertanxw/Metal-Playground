@@ -1100,6 +1100,7 @@ extension float4x4 {
 }
 
 // MARK: - Font Atlas Structs
+// TODO: Consider changing all doubles to floats
 struct FontAtlas: Codable {
     let atlas: AtlasMetrics
     let metrics: FontMetrics

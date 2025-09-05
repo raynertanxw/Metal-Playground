@@ -101,8 +101,8 @@ Renderer::Renderer( MTL::Device* pDevice, MTK::View* pView )
     buildPrimitivePipeline(pView->colorPixelFormat());
     buildTextPipeline(pView->colorPixelFormat());
     
-    // TODO: Load Textures and Fonts
     loadAtlasTextureAndUV();
+    // TODO: Load Fonts
 }
 
 Renderer::~Renderer()
@@ -271,125 +271,118 @@ void Renderer::buildTextPipeline(MTL::PixelFormat pixelFormat)
     // TODO: Implement this
 }
 
+static std::string formatResourceURL(std::string filename, std::string extension)
+{
+    using namespace std;
+    string result;
+    
+    CFStringRef cf_filename = CFStringCreateWithCString(kCFAllocatorDefault, filename.c_str(), kCFStringEncodingUTF8);
+    CFStringRef cf_ext = CFStringCreateWithCString(kCFAllocatorDefault, extension.c_str(), kCFStringEncodingUTF8);
+    CFURLRef cf_rscUrl = CFBundleCopyResourceURL(CFBundleGetMainBundle(), cf_filename, cf_ext, nullptr);
+    
+    CFStringRef path = CFURLCopyFileSystemPath(cf_rscUrl, kCFURLPOSIXPathStyle);
+    assert(path);
+    
+    const char* cPath = CFStringGetCStringPtr(path, kCFStringEncodingUTF8);
+    
+    if (cPath) {
+        result = string(cPath);
+    } else {
+        // Fallback
+        CFIndex length = CFStringGetLength(path);
+        CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+        char* buffer = new char[maxSize];
+        if (CFStringGetCString(path, buffer, maxSize, kCFStringEncodingUTF8)) {
+            result = string(buffer);
+        }
+        delete[] buffer;
+    }
+    
+    // TODO: Check all the mem releases!
+    CFRelease(path);
+    CFRelease(cf_rscUrl);
+    CFRelease(cf_ext);
+    CFRelease(cf_filename);
+    
+    return result;
+}
+
+static MTL::Texture* loadTexture(int width, int height, std::string imageUrl, MTL::Device* device)
+{
+    MTL::Texture* resultTexture;
+    MTL::TextureDescriptor* textureDesc = MTL::TextureDescriptor::alloc()->init();
+    
+    textureDesc->setWidth(width);
+    textureDesc->setHeight(height);
+    textureDesc->setPixelFormat( MTL::PixelFormatRGBA8Unorm );
+    textureDesc->setTextureType( MTL::TextureType2D );
+    textureDesc->setStorageMode( MTL::StorageModeManaged );
+    textureDesc->setUsage( MTL::ResourceUsageSample | MTL::ResourceUsageRead );
+    
+    resultTexture = device->newTexture(textureDesc);
+    int numChannels = 4;
+    unsigned char* imageData = stbi_load(imageUrl.c_str(), &width, &height, &numChannels, 0);
+    resultTexture->replaceRegion( MTL::Region( 0, 0, 0, width, height, 1 ), 0, (uint8_t*)imageData, width * 4 );
+
+    textureDesc->release();
+    return resultTexture;
+}
+
 void Renderer::loadAtlasTextureAndUV()
 {
     using namespace std;
     
     int mainAtlasTWidth = 256;
     int mainAtlasTHeight = 256;
-    std::string filename = "main_atlas";
     
-    // TODO: Check all the filename releases!
-    std::string imageFileUrl;
-    std::string uvFileUrl;
-    
-    CFStringRef cf_atlasName = CFStringCreateWithCString(kCFAllocatorDefault, filename.c_str(), kCFStringEncodingUTF8);
-    CFStringRef cf_rscTxt = CFSTR("txt");
-    CFStringRef cf_rscPng = CFSTR("png");
-    
-    CFURLRef cf_imageUrl = CFBundleCopyResourceURL(CFBundleGetMainBundle(), cf_atlasName, cf_rscPng, nullptr);
-    CFURLRef cf_uvUrl = CFBundleCopyResourceURL(CFBundleGetMainBundle(), cf_atlasName, cf_rscTxt, nullptr);
-    
-    CFRelease(cf_atlasName);
-    CFRelease(cf_rscPng);
-    CFRelease(cf_rscTxt);
-    
-    
-    { // TODO: Extract this out into a CF Helper function utils or something.
-        CFStringRef path = CFURLCopyFileSystemPath(cf_uvUrl, kCFURLPOSIXPathStyle);
-        assert(path);
-        
-        const char* cPath = CFStringGetCStringPtr(path, kCFStringEncodingUTF8);
-        
-        if (cPath) {
-            uvFileUrl = std::string(cPath);
-        } else {
-            // Fallback
-            CFIndex length = CFStringGetLength(path);
-            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-            char* buffer = new char[maxSize];
-            if (CFStringGetCString(path, buffer, maxSize, kCFStringEncodingUTF8)) {
-                uvFileUrl = std::string(buffer);
-            }
-            delete[] buffer;
-        }
-        
-        CFRelease(path);
-    }
-    
-    { // TODO: Extract this out into a CF Helper function utils or something.
-        CFStringRef path = CFURLCopyFileSystemPath(cf_imageUrl, kCFURLPOSIXPathStyle);
-        assert(path);
-        
-        const char* cPath = CFStringGetCStringPtr(path, kCFStringEncodingUTF8);
-        
-        if (cPath) {
-            imageFileUrl = std::string(cPath);
-        } else {
-            // Fallback
-            CFIndex length = CFStringGetLength(path);
-            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-            char* buffer = new char[maxSize];
-            if (CFStringGetCString(path, buffer, maxSize, kCFStringEncodingUTF8)) {
-                imageFileUrl = std::string(buffer);
-            }
-            delete[] buffer;
-        }
-        
-        CFRelease(path);
-    }
-
-    
-    
-    
-    
-    
+    string imageFileUrl = formatResourceURL("main_atlas", "png");
+    string uvFileUrl = formatResourceURL("main_atlas", "txt");
     
     // Load the Texture data
-    MTL::TextureDescriptor* textureDesc = MTL::TextureDescriptor::alloc()->init();
+    mainAtlasTexture = loadTexture(mainAtlasTWidth, mainAtlasTHeight, imageFileUrl, device);
     
-    textureDesc->setWidth(mainAtlasTWidth);
-    textureDesc->setHeight(mainAtlasTHeight);
-    textureDesc->setPixelFormat( MTL::PixelFormatRGBA8Unorm );
-    textureDesc->setTextureType( MTL::TextureType2D );
-    textureDesc->setStorageMode( MTL::StorageModeManaged );
-    textureDesc->setUsage( MTL::ResourceUsageSample | MTL::ResourceUsageRead );
-
-    mainAtlasTexture = device->newTexture(textureDesc);
-    
-    int numChannels = 4;
-    unsigned char* mainAtlasImageData = stbi_load(imageFileUrl.c_str(), &mainAtlasTWidth, &mainAtlasTHeight, &numChannels, 0);
-
-    mainAtlasTexture->replaceRegion( MTL::Region( 0, 0, 0, mainAtlasTWidth, mainAtlasTHeight, 1 ), 0, (uint8_t*)mainAtlasImageData, mainAtlasTWidth * 4 );
-    textureDesc->release();
-    
-    
-    // Load the UV data
-    std::ifstream file(uvFileUrl);
-    
-    assert(file.is_open());
-    
-    std::string line;
-    
-    // Skip the first line (count line)
-    std::getline(file, line);
-    
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
+    { // Load the UV data
+        ifstream file(uvFileUrl);
+        assert(file.is_open());
+        string line;
         
-        std::istringstream iss(line);
-        std::string name;
-        float x, y, w, h;
-        
-        if (iss >> name >> x >> y >> w >> h) {
-            simd::float2 minUV = {x / mainAtlasTWidth, y / mainAtlasTHeight};
-            simd::float2 maxUV = {(x + w) / mainAtlasTWidth, (y + h) / mainAtlasTHeight};
+        // Skip the first line (count line)
+        getline(file, line);
+        while (std::getline(file, line)) {
+            if (line.empty()) continue;
             
-            mainAtlasUVRects[name] = {minUV, maxUV};
-            __builtin_printf("name: %s, (%0.f, %0.f), w:%0.f, h%0.f\n", name.c_str(), x, y, w, h);
+            std::istringstream iss(line);
+            std::string name;
+            float x, y, w, h;
+            
+            if (iss >> name >> x >> y >> w >> h) {
+                simd::float2 minUV = {x / mainAtlasTWidth, y / mainAtlasTHeight};
+                simd::float2 maxUV = {(x + w) / mainAtlasTWidth, (y + h) / mainAtlasTHeight};
+                
+                mainAtlasUVRects[name] = {minUV, maxUV};
+                __builtin_printf("name: %s, (%0.f, %0.f), w:%0.f, h%0.f\n", name.c_str(), x, y, w, h);
+            }
         }
+        file.close();
     }
-    file.close();
+}
+
+void Renderer::loadTextInfoAndTexture() {
+    using namespace std;
+    
+    int fontTextureWidth = 792;
+    int fontTextureHeight = 792;
+
+    
+    string fontName = "roboto";
+    string fontImageUrl = formatResourceURL(fontName, "png");
+    string fontAtlasUrl = formatResourceURL(fontName, "json");
+
+    // Load the Texture data
+    fontTexture = loadTexture(fontTextureWidth, fontTextureHeight, fontImageUrl, device);
+ 
+    
+    // TODO: load font data and set up the processing of the font data
 }
 
 void Renderer::testDrawPrimitives() {
