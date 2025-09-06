@@ -62,7 +62,6 @@ struct TextFragmentUniforms {
 };
 
 // MARK: - Font Atlas Structs
-// TODO: Check, need to load this as a codable from the JSON...
 // TODO: Consider changing all doubles to floats
 struct AtlasMetrics {
     std::string type;
@@ -154,7 +153,6 @@ private:
     // TODO: Use Arguement buffers to pass multiple texture atlasses?
     MTL::Texture* mainAtlasTexture = nullptr;
     std::map<std::string, AtlasUVRect> mainAtlasUVRects;
-    // TODO: This should be a const... set in constructor...?
     MTL::SamplerState* atlasSamplerState;
     
     
@@ -261,7 +259,6 @@ private:
     void drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
     void drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, simd_float4 color);
     
-    // TODO: Text Drawing Functions
     void drawText(const char* text, float posX, float posY, float fontSize, simd::float4 color);
     void buildMesh(const char* text, float posX, float posY, float fontSize, simd::float4 color, TextVertex* outVertices, int& outVertexCount);
     std::pair<float, float> measureTextBounds(const char* text, float fontSize);
