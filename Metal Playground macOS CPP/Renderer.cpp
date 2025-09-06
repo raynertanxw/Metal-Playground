@@ -160,11 +160,13 @@ Renderer::Renderer( MTL::Device* pDevice, MTK::View* pView )
     
     loadAtlasTextureAndUV();
     loadTextInfoAndTexture();
+    textTempVertexBuffer = new TextVertex[textMaxSingleDrawVertCount];
 }
 
 Renderer::~Renderer()
 {
     delete[] drawBatchesArr;
+    drawBatchesArr = nullptr;
     device->release();
     commandQueue->release();
     
@@ -176,6 +178,8 @@ Renderer::~Renderer()
     primitiveTriInstanceBuffer->release();
     primitivePipelineState->release();
     mainAtlasTexture->release();
+    delete[] textTempVertexBuffer;
+    textTempVertexBuffer = nullptr;
 }
 
 void Renderer::buildAtlasBuffers()
@@ -1042,15 +1046,17 @@ void Renderer::drawText(const char* text,
     if (!text || text[0] == '\0') return;
     
     const int predictedMaxVertices = (int)strlen(text) * 6;
+    assert(predictedMaxVertices <= textMaxSingleDrawVertCount);
     
-    int startIndex = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_text, predictedMaxVertices);
     int vertexCount = 0;
-
     buildMesh(text, posX, posY, fontSize, color,
-              textVertexBufferPtr + startIndex,
+              textTempVertexBuffer,
               vertexCount);
+    
     assert(vertexCount > 0);
-    if (vertexCount != predictedMaxVertices) __builtin_printf("MISMTACH!!! %d, %d\n", vertexCount, predictedMaxVertices);
+
+    int startIndex = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_text, vertexCount);
+    memcpy(textVertexBufferPtr + startIndex, textTempVertexBuffer, sizeof(TextVertex) * vertexCount);
     textVertexCount += vertexCount;
 }
 

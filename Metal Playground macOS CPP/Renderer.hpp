@@ -191,6 +191,8 @@ private:
     int textTriInstanceBufferOffset = 0;
     TextVertex* textVertexBufferPtr = nullptr;
     int textVertexCount = 0;
+    const int textMaxSingleDrawVertCount = 320 * 6;
+    TextVertex* textTempVertexBuffer = nullptr;
     
     
     // MARK: - Draw Command Batching
