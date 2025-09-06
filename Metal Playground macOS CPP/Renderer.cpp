@@ -602,12 +602,145 @@ void Renderer::testDrawAtlasSprites()
 
 void Renderer::testDrawTextWithBounds()
 {
-    // TODO: Copy over actual debug stuff.
-    // But also... this text rendering is incomplete. Not fully working!
-    // The render is gibberish and broken. We need to look through and double check if the Swift code was ported correctly.
-    // Also need to check if the json was read properly. So need to essentially var_dump the whole thing for both sides swift and metal-cpp.
-    const float fontSize = 96;
-    drawText("Hello, SDF\nWorld!!!", 100, 100, fontSize, colorFromBytes(255, 255, 255, 255));
+    const float fontSize = 96.0f;
+    
+    // Generate timestamp as string
+    std::time_t now = std::time(nullptr);
+    char timeBuffer[32];
+    std::snprintf(timeBuffer, sizeof(timeBuffer), "%ld", now);
+    
+    // Build text with multiple lines: "Hello, SDF\nWorld!\n\n<timestamp>"
+    char text[256];
+    std::snprintf(text, sizeof(text), "Hello, SDF\nWorld!\n\n%s", timeBuffer);
+    
+    // Measure text bounds
+    auto bounds = measureTextBounds(text, fontSize); // returns std::pair<float, float>
+    float textWidth  = bounds.first;
+    float textHeight = bounds.second;
+    
+    // Draw a circle at the top-left of the text bounds
+    simd::float4 white = {1.0f, 1.0f, 1.0f, 1.0f};
+    drawPrimitiveCirlce(-textWidth / 2.0f,
+                        textHeight / 2.0f,
+                        16.0f,
+                        white);
+        
+    // Draw a rectangle behind the text to visualize bounds
+    drawPrimitiveRect(-textWidth / 2.0f,
+                      -textHeight / 2.0f,
+                      textWidth,
+                      textHeight,
+                      simd::float4{0.0f, 1.0f, 1.0f, 0.25f} // semi-transparent cyan
+                      );
+    
+    // Draw the main multi-line text
+    simd::float4 yellow = {0.9f, 0.9f, 0.1f, 1.0f};
+    drawText(
+             text,
+             -textWidth / 2.0f,
+             textHeight / 2.0f,
+             fontSize,
+             yellow
+             );
+    
+    // Draw another text at fixed offset
+    simd::float4 purple = {0.3f, 0.2f, 0.7f, 1.0f};
+    drawText("HELLO       AGAIN!!!",
+             20.0f - screenSize.width / 2.0f,
+             -20.0f + screenSize.height / 2.0f,
+             48.0f,
+             purple
+             );
+}
+
+void Renderer::testDrawInterleavedTypes()
+{
+    // Waves and circle positions
+    float wave1   = std::sin(time * 1.5f) * 300.0f;
+    float wave2   = std::cos(time * 0.8f) * 200.0f;
+    float wave3   = std::sin(time * 3.2f) * 100.0f;
+    float circleX = std::sin(time * 2.0f) * 256.0f;
+    float circleY = std::cos(time * 1.0f) * 128.0f;
+
+    // Draw first sprite
+    drawSprite(
+        "player_2",
+        wave1,
+        wave2,
+        256.0f + wave3,
+        256.0f + wave3,
+        simd::float4{1.0f, 1.0f, 1.0f, 1.0f},
+        0.0f
+    );
+
+    // Draw moving circle
+    drawPrimitiveCirlce(
+        circleX,
+        circleY,
+        128.0f + std::sin(time * 4.0f) * 64.0f,
+        simd::float4{1.0f, 0.3f, 0.5f, 1.0f}
+    );
+
+    // Draw mirrored sprite
+    drawSprite(
+        "player_2",
+        -circleX,
+        -circleY,
+        128.0f,
+        128.0f,
+        simd::float4{1.0f, 1.0f, 1.0f, 1.0f},
+        0.0f
+    );
+
+    // Dynamic text Y offset
+    float textYOffset = std::sin(time * 1.2f) * 40.0f;
+
+    // Draw first dynamic text
+    drawText(
+        "Dynamic Text\nis Alive!",
+        -200.0f,
+        300.0f + textYOffset,
+        64.0f + std::sin(time * 2.5f) * 8.0f,
+        simd::float4{1.0f, 0.8f, 0.2f, 1.0f}
+    );
+
+    // Draw static text
+    drawText(
+        "Another Test",
+        -150.0f,
+        -50.0f,
+        48.0f,
+        simd::float4{1.0f, 0.0f, 1.0f, 1.0f}
+    );
+
+    // Scroll offset for moving text block
+    float scrollOffset = std::sin(time * 0.5f) * 150.0f;
+
+    // Draw first scrolling text block
+    drawText(
+        "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
+        -600.0f + scrollOffset,
+        600.0f,
+        96.0f,
+        simd::float4{0.1f, 1.0f, 0.5f, 1.0f}
+    );
+
+    // Another moving circle
+    drawPrimitiveCirlce(
+        std::sin(time * 0.7f) * 600.0f,
+        std::cos(time * 0.9f) * 500.0f,
+        64.0f,
+        simd::float4{0.0f, 0.5f, 0.5f, 1.0f}
+    );
+
+    // Draw mirrored scrolling text block
+    drawText(
+        "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
+        -900.0f - scrollOffset,
+        100.0f,
+        96.0f,
+        simd::float4{0.1f, 1.0f, 0.5f, 1.0f}
+    );
 }
 
 void Renderer::draw( MTK::View* pView )
@@ -634,6 +767,7 @@ void Renderer::draw( MTK::View* pView )
         testDrawPrimitives();
         testDrawAtlasSprites();
         testDrawTextWithBounds();
+        testDrawInterleavedTypes();
 
         MTL::RenderPassDescriptor* renderPassDesc = pView->currentRenderPassDescriptor();
         MTL::RenderCommandEncoder* encoder = cmdBuffer->renderCommandEncoder(renderPassDesc);
@@ -999,6 +1133,7 @@ void Renderer::buildMesh(const char* text,
 }
 
 
+// TODO: Convert into a Vector2 return type.
 std::pair<float, float> Renderer::measureTextBounds(const char* text, float fontSize)
 {
     if (!text || text[0] == '\0') return {0.0f, 0.0f};

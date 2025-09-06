@@ -232,6 +232,7 @@ private:
     void testDrawPrimitives();
     void testDrawAtlasSprites();
     void testDrawTextWithBounds();
+    void testDrawInterleavedTypes();
     
     // MARK: - Draw Helpers
     static inline simd_float4 colorFromBytes(UInt8 r, UInt8 g, UInt8 b, UInt8 a);
