@@ -551,7 +551,7 @@ void Renderer::testDrawPrimitives() {
         color.z = RandomF01(&rng);
         color.w = 1.0;
         
-        drawPrimitiveCirlce(x, y, radius, color);
+        drawPrimitiveCircle(x, y, radius, color);
     }
     
 //    drawPrimitiveCircle(0, 0, 50, 0, 255, 255, 255);
@@ -624,7 +624,7 @@ void Renderer::testDrawTextWithBounds()
     
     // Draw a circle at the top-left of the text bounds
     simd::float4 white = {1.0f, 1.0f, 1.0f, 1.0f};
-    drawPrimitiveCirlce(-textWidth / 2.0f,
+    drawPrimitiveCircle(-textWidth / 2.0f,
                         textHeight / 2.0f,
                         16.0f,
                         white);
@@ -678,7 +678,7 @@ void Renderer::testDrawInterleavedTypes()
     );
 
     // Draw moving circle
-    drawPrimitiveCirlce(
+    drawPrimitiveCircle(
         circleX,
         circleY,
         128.0f + std::sin(time * 4.0f) * 64.0f,
@@ -730,7 +730,7 @@ void Renderer::testDrawInterleavedTypes()
     );
 
     // Another moving circle
-    drawPrimitiveCirlce(
+    drawPrimitiveCircle(
         std::sin(time * 0.7f) * 600.0f,
         std::cos(time * 0.9f) * 500.0f,
         64.0f,
@@ -924,9 +924,9 @@ void Renderer::drawSprite(const char* spriteName, float x, float y, float width,
 void Renderer::drawPrimitiveCircle(float x, float y, float radius,
                              UInt8 r, UInt8 g, UInt8 b, UInt8 a)
 {
-    drawPrimitiveCirlce(x, y, radius, colorFromBytes(r, g, b, a));
+    drawPrimitiveCircle(x, y, radius, colorFromBytes(r, g, b, a));
 }
-void Renderer::drawPrimitiveCirlce(float x, float y, float radius, simd_float4 color)
+void Renderer::drawPrimitiveCircle(float x, float y, float radius, simd_float4 color)
 {
     const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
     primitiveInstancesPtr[index] = (PrimitiveInstanceData){

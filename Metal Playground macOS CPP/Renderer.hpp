@@ -244,7 +244,7 @@ private:
     void drawSprite(const char* spriteName, float x, float y, float width, float height, simd_float4 color, float rotationRadians);
     
     void drawPrimitiveCircle(float x, float y, float radius, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
-    void drawPrimitiveCirlce(float x, float y, float radius, simd_float4 color);
+    void drawPrimitiveCircle(float x, float y, float radius, simd_float4 color);
     
     void drawPrimitiveCircleLines(float x, float y, float radius, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a);
     void drawPrimitiveCircleLines(float x, float y, float radius, float thickness, simd_float4 color);
