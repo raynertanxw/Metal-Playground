@@ -598,6 +598,16 @@ void Renderer::testDrawAtlasSprites()
     }
 }
 
+void Renderer::testDrawTextWithBounds()
+{
+    // TODO: Copy over actual debug stuff.
+    // But also... this text rendering is incomplete. Not fully working!
+    // The render is gibberish and broken. We need to look through and double check if the Swift code was ported correctly.
+    // Also need to check if the json was read properly. So need to essentially var_dump the whole thing for both sides swift and metal-cpp.
+    const float fontSize = 96;
+    drawText("Hello, SDF\nWorld!!!", 100, 100, fontSize, colorFromBytes(255, 255, 255, 255));
+}
+
 void Renderer::draw( MTK::View* pView )
 {
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
@@ -621,6 +631,7 @@ void Renderer::draw( MTK::View* pView )
         // TODO TEST DRAW CODE HERE
         testDrawPrimitives();
         testDrawAtlasSprites();
+        testDrawTextWithBounds();
 
         MTL::RenderPassDescriptor* renderPassDesc = pView->currentRenderPassDescriptor();
         MTL::RenderCommandEncoder* encoder = cmdBuffer->renderCommandEncoder(renderPassDesc);
@@ -887,5 +898,159 @@ void Renderer::drawPrimitiveRectLines(float x, float y, float width, float heigh
 }
 
 // TODO: Implement the text drawing functions
+void Renderer::drawText(const char* text,
+                        float posX, float posY,
+                        float fontSize,
+                        simd::float4 color)
+{
+    if (!text || text[0] == '\0') return;
+
+    int vertexCount = 0;
+    buildMesh(text, posX, posY, fontSize, color,
+              textVertexBufferPtr + textVertexCount,
+              vertexCount);
+
+    if (vertexCount == 0) return;
+
+    addToDrawBatchAndGetAdjustedIndex(drawbatchtype_text, vertexCount);
+    textVertexCount += vertexCount;
+}
+
+
+void Renderer::buildMesh(const char* text,
+                         float posX, float posY,
+                         float fontSize,
+                         simd::float4 color,
+                         TextVertex* outVertices,
+                         int& outVertexCount)
+{
+    outVertexCount = 0;
+
+    float atlasWidth  = static_cast<float>(fontAtlas.atlas.width);
+    float atlasHeight = static_cast<float>(fontAtlas.atlas.height);
+
+    float scale      = fontSize / static_cast<float>(fontAtlas.metrics.emSize);
+    float lineHeight = static_cast<float>(fontAtlas.metrics.lineHeight) * scale;
+    float ascender   = static_cast<float>(fontAtlas.metrics.ascender) * scale;
+
+    float cursorX = posX;
+    float cursorY = posY - ascender;
+    uint32_t previousChar = 0;
+
+    for (const char* p = text; *p; ++p) {
+        uint32_t unicode = static_cast<uint8_t>(*p);
+
+        if (unicode == '\n') {
+            cursorX = posX;
+            cursorY -= lineHeight;
+            previousChar = 0;
+            continue;
+        }
+
+        // Kerning
+        if (previousChar != 0) {
+            uint64_t key = (static_cast<uint64_t>(previousChar) << 32) | unicode;
+            auto it = fontKerning.find(key);
+            if (it != fontKerning.end()) {
+                cursorX += static_cast<float>(it->second.advance) * scale;
+            }
+        }
+
+        auto gIt = fontGlyphs.find(unicode);
+        if (gIt == fontGlyphs.end()) {
+            previousChar = unicode;
+            continue;
+        }
+        const Glyph& glyph = gIt->second;
+
+        if (glyph.planeBounds && glyph.atlasBounds) {
+            const Bounds& plane = *glyph.planeBounds;
+            const Bounds& atlas = *glyph.atlasBounds;
+
+            float x0 = cursorX + static_cast<float>(plane.left) * scale;
+            float y0 = cursorY + static_cast<float>(plane.bottom) * scale;
+            float x1 = cursorX + static_cast<float>(plane.right) * scale;
+            float y1 = cursorY + static_cast<float>(plane.top) * scale;
+
+            float u0 = static_cast<float>(atlas.left) / atlasWidth;
+            float u1 = static_cast<float>(atlas.right) / atlasWidth;
+            float v0 = (atlasHeight - static_cast<float>(atlas.top)) / atlasHeight;
+            float v1 = (atlasHeight - static_cast<float>(atlas.bottom)) / atlasHeight;
+
+            TextVertex topLeft     {{x0, y1}, {u0, v0}, color};
+            TextVertex topRight    {{x1, y1}, {u1, v0}, color};
+            TextVertex bottomLeft  {{x0, y0}, {u0, v1}, color};
+            TextVertex bottomRight {{x1, y0}, {u1, v1}, color};
+
+            // Two triangles = 6 vertices
+            outVertices[outVertexCount++] = bottomLeft;
+            outVertices[outVertexCount++] = bottomRight;
+            outVertices[outVertexCount++] = topRight;
+            outVertices[outVertexCount++] = bottomLeft;
+            outVertices[outVertexCount++] = topRight;
+            outVertices[outVertexCount++] = topLeft;
+        }
+
+        cursorX += static_cast<float>(glyph.advance) * scale;
+        previousChar = unicode;
+    }
+}
+
+
+std::pair<float, float> Renderer::measureTextBounds(const char* text, float fontSize)
+{
+    if (!text || text[0] == '\0') return {0.0f, 0.0f};
+
+    float scale      = fontSize / static_cast<float>(fontAtlas.metrics.emSize);
+    float lineHeight = static_cast<float>(fontAtlas.metrics.lineHeight) * scale;
+
+    float maxXInLine = 0.0f;
+    float maxLineWidth = 0.0f;
+    float cursorX = 0.0f;
+    int lineCount = 1;
+    uint32_t previousChar = 0;
+
+    for (const char* p = text; *p; ++p) {
+        uint32_t unicode = static_cast<uint8_t>(*p);
+
+        if (unicode == '\n') {
+            maxLineWidth = std::max(maxLineWidth, maxXInLine);
+            cursorX = 0;
+            maxXInLine = 0;
+            lineCount++;
+            previousChar = 0;
+            continue;
+        }
+
+        if (previousChar != 0) {
+            uint64_t key = (static_cast<uint64_t>(previousChar) << 32) | unicode;
+            auto it = fontKerning.find(key);
+            if (it != fontKerning.end()) {
+                cursorX += static_cast<float>(it->second.advance) * scale;
+            }
+        }
+
+        auto gIt = fontGlyphs.find(unicode);
+        if (gIt != fontGlyphs.end()) {
+            const Glyph& glyph = gIt->second;
+            float glyphRight = 0.0f;
+            if (glyph.planeBounds) {
+                glyphRight = cursorX + static_cast<float>(glyph.planeBounds->right) * scale;
+            } else {
+                glyphRight = cursorX + static_cast<float>(glyph.advance) * scale;
+            }
+            maxXInLine = std::max(maxXInLine, glyphRight);
+            cursorX += static_cast<float>(glyph.advance) * scale;
+        }
+
+        previousChar = unicode;
+    }
+
+    float textWidth  = std::max(maxLineWidth, maxXInLine);
+    float textHeight = static_cast<float>(lineCount) * lineHeight;
+
+    return {textWidth, textHeight};
+}
+
 
 

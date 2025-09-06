@@ -231,6 +231,7 @@ private:
     // MARK: - Test functions
     void testDrawPrimitives();
     void testDrawAtlasSprites();
+    void testDrawTextWithBounds();
     
     // MARK: - Draw Helpers
     static inline simd_float4 colorFromBytes(UInt8 r, UInt8 g, UInt8 b, UInt8 a);
@@ -258,6 +259,9 @@ private:
     void drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, simd_float4 color);
     
     // TODO: Text Drawing Functions
+    void drawText(const char* text, float posX, float posY, float fontSize, simd::float4 color);
+    void buildMesh(const char* text, float posX, float posY, float fontSize, simd::float4 color, TextVertex* outVertices, int& outVertexCount);
+    std::pair<float, float> measureTextBounds(const char* text, float fontSize);
 };
 
 #endif /* Renderer_hpp */
