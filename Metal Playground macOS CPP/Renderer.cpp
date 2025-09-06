@@ -435,7 +435,7 @@ static std::string formatResourceURL(std::string filename, std::string extension
     return result;
 }
 
-static MTL::Texture* loadTexture(int width, int height, std::string imageUrl, MTL::Device* device)
+static MTL::Texture* loadTexture(int width, int height, std::string imageUrl, MTL::Device* device, bool hasAlpha)
 {
     MTL::Texture* resultTexture;
     MTL::TextureDescriptor* textureDesc = MTL::TextureDescriptor::alloc()->init();
@@ -444,14 +444,16 @@ static MTL::Texture* loadTexture(int width, int height, std::string imageUrl, MT
     textureDesc->setHeight(height);
     textureDesc->setPixelFormat( MTL::PixelFormatRGBA8Unorm );
     textureDesc->setTextureType( MTL::TextureType2D );
-    textureDesc->setStorageMode( MTL::StorageModeManaged );
+    textureDesc->setStorageMode( MTL::StorageModeShared );
     textureDesc->setUsage( MTL::ResourceUsageSample | MTL::ResourceUsageRead );
     
     resultTexture = device->newTexture(textureDesc);
     int numChannels = 4;
-    unsigned char* imageData = stbi_load(imageUrl.c_str(), &width, &height, &numChannels, 0);
+    if (!hasAlpha) numChannels = 3;
+    unsigned char* imageData = stbi_load(imageUrl.c_str(), &width, &height, &numChannels, 4); // NOTE: Force to always return 4 channels
     resultTexture->replaceRegion( MTL::Region( 0, 0, 0, width, height, 1 ), 0, (uint8_t*)imageData, width * 4 );
 
+    stbi_image_free(imageData);
     textureDesc->release();
     return resultTexture;
 }
@@ -467,7 +469,7 @@ void Renderer::loadAtlasTextureAndUV()
     string uvFileUrl = formatResourceURL("main_atlas", "txt");
     
     // Load the Texture data
-    mainAtlasTexture = loadTexture(mainAtlasTWidth, mainAtlasTHeight, imageFileUrl, device);
+    mainAtlasTexture = loadTexture(mainAtlasTWidth, mainAtlasTHeight, imageFileUrl, device, true);
     
     { // Load the UV data
         ifstream file(uvFileUrl);
@@ -507,7 +509,7 @@ void Renderer::loadTextInfoAndTexture()
     string fontJsonUrl = formatResourceURL(fontName, "json");
 
     // Load the Texture data
-    fontTexture = loadTexture(fontTextureWidth, fontTextureHeight, fontImageUrl, device);
+    fontTexture = loadTexture(fontTextureWidth, fontTextureHeight, fontImageUrl, device, false);
  
     { // Load JSON file
         ifstream file(fontJsonUrl);
