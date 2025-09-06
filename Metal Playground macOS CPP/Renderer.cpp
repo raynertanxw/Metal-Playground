@@ -1040,15 +1040,17 @@ void Renderer::drawText(const char* text,
                         simd::float4 color)
 {
     if (!text || text[0] == '\0') return;
-
+    
+    const int predictedMaxVertices = (int)strlen(text) * 6;
+    
+    int startIndex = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_text, predictedMaxVertices);
     int vertexCount = 0;
+
     buildMesh(text, posX, posY, fontSize, color,
-              textVertexBufferPtr + textVertexCount,
+              textVertexBufferPtr + startIndex,
               vertexCount);
-
-    if (vertexCount == 0) return;
-
-    addToDrawBatchAndGetAdjustedIndex(drawbatchtype_text, vertexCount);
+    assert(vertexCount > 0);
+    if (vertexCount != predictedMaxVertices) __builtin_printf("MISMTACH!!! %d, %d\n", vertexCount, predictedMaxVertices);
     textVertexCount += vertexCount;
 }
 
@@ -1074,7 +1076,9 @@ void Renderer::buildMesh(const char* text,
     uint32_t previousChar = 0;
 
     for (const char* p = text; *p; ++p) {
-        uint32_t unicode = static_cast<uint8_t>(*p);
+        uint32_t unicode = static_cast<unsigned char>(*p); // ensures 0-255
+        if (unicode > 127) continue; // skip non-ASCII
+
 
         if (unicode == '\n') {
             cursorX = posX;
@@ -1148,7 +1152,8 @@ std::pair<float, float> Renderer::measureTextBounds(const char* text, float font
     uint32_t previousChar = 0;
 
     for (const char* p = text; *p; ++p) {
-        uint32_t unicode = static_cast<uint8_t>(*p);
+        uint32_t unicode = static_cast<unsigned char>(*p); // ensures 0-255
+        if (unicode > 127) continue; // skip non-ASCII
 
         if (unicode == '\n') {
             maxLineWidth = std::max(maxLineWidth, maxXInLine);
