@@ -177,7 +177,12 @@ Renderer::~Renderer()
     primitiveVertexBuffer->release();
     primitiveTriInstanceBuffer->release();
     primitivePipelineState->release();
+    textTriVertexBuffer->release();
+    textSamplerState->release();
+    textPipelineState->release();
+    
     mainAtlasTexture->release();
+    fontTexture->release();
     delete[] textTempVertexBuffer;
     textTempVertexBuffer = nullptr;
 }
@@ -455,9 +460,10 @@ static MTL::Texture* loadTexture(int width, int height, std::string imageUrl, MT
     int numChannels = 4;
     if (!hasAlpha) numChannels = 3;
     unsigned char* imageData = stbi_load(imageUrl.c_str(), &width, &height, &numChannels, 4); // NOTE: Force to always return 4 channels
-    resultTexture->replaceRegion( MTL::Region( 0, 0, 0, width, height, 1 ), 0, (uint8_t*)imageData, width * 4 );
-
-    stbi_image_free(imageData);
+    if (imageData) {
+        resultTexture->replaceRegion( MTL::Region( 0, 0, 0, width, height, 1 ), 0, (uint8_t*)imageData, width * 4 );
+        stbi_image_free(imageData);
+    }
     textureDesc->release();
     return resultTexture;
 }
@@ -581,7 +587,7 @@ void Renderer::testDrawPrimitives() {
 
 void Renderer::testDrawAtlasSprites()
 {
-    const int testMaxCount = 10;
+    const int testMaxCount = 100;
     const int testCount = MIN
     ((int)((sin(time * 2.0f) + 1.0f) / 2.0f * testMaxCount),
      atlasMaxInstanceCount - 1);
@@ -767,7 +773,6 @@ void Renderer::draw( MTK::View* pView )
         textVertexCount = 0;
         
         time += 1.0 / pView->preferredFramesPerSecond();
-        // TODO TEST DRAW CODE HERE
         testDrawPrimitives();
         testDrawAtlasSprites();
         testDrawTextWithBounds();
@@ -1037,7 +1042,6 @@ void Renderer::drawPrimitiveRectLines(float x, float y, float width, float heigh
     ++primitiveInstanceCount;
 }
 
-// TODO: Implement the text drawing functions
 void Renderer::drawText(const char* text,
                         float posX, float posY,
                         float fontSize,
