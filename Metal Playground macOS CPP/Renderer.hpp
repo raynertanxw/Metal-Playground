@@ -13,6 +13,9 @@
 #include <simd/simd.h>
 #include <functional>
 #include <map>
+#include <string>
+#include <vector>
+#include <optional>
 
 struct AtlasVertex {
     simd_float2 position;
@@ -62,49 +65,48 @@ struct TextFragmentUniforms {
 // TODO: Check, need to load this as a codable from the JSON...
 // TODO: Consider changing all doubles to floats
 struct AtlasMetrics {
-    const char* type;
-    const double distanceRange;
-    const double size;
-    const int width;
-    const int height;
-    const char* yOrigin;
+    std::string type;
+    double distanceRange;
+    double size;
+    int width;
+    int height;
+    std::string yOrigin;
 };
 
 struct FontMetrics {
-    const double emSize;
-    const double lineHeight;
-    const double ascender;
-    const double descender;
-    const double underlineY;
-    const double underlineThickness;
+    double emSize;
+    double lineHeight;
+    double ascender;
+    double descender;
+    double underlineY;
+    double underlineThickness;
 };
 
 struct Bounds {
-    const double left;
-    const double bottom;
-    const double right;
-    const double top;
+    double left;
+    double bottom;
+    double right;
+    double top;
 };
 
 struct Glyph {
-    const int unicode;
-    const double advance;
-    // TODO: Double check if this needs to be nill later
-    const Bounds planeBounds;
-    const Bounds atlasBounds;
+    int unicode;
+    double advance;
+    std::optional<Bounds> planeBounds;
+    std::optional<Bounds> atlasBounds;
 };
 
 struct Kerning {
-    const int unicode1;
-    const int unicode2;
-    const double advance;
+    int unicode1;
+    int unicode2;
+    double advance;
 };
 
 struct FontAtlas {
-    const AtlasMetrics atlas;
-    const FontMetrics metrics;
-    const Glyph* glyphs;
-    const Kerning* kerning;
+    AtlasMetrics atlas;
+    FontMetrics metrics;
+    std::vector<Glyph> glyphs;
+    std::vector<Kerning> kerning;
 };
 
 class Renderer
@@ -178,8 +180,7 @@ private:
     
     // MARK: - TEXT PIPELINE VARS
     MTL::Texture* fontTexture;
-    // TODO: Renable this later.
-    //    FontAtlas fontAtlas;
+    FontAtlas fontAtlas;
     std::map<UInt32, Glyph> fontGlyphs;
     std::map<UInt64, Kerning> fontKerning;
     
