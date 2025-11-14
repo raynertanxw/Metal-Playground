@@ -443,10 +443,15 @@ class Renderer: NSObject, MTKViewDelegate {
         
         // Load PNG Texture
         let textureLoader = MTKTextureLoader(device: device)
+        let options: [MTKTextureLoader.Option: Any] = [
+            .SRGB: false, // NOTE: Specify non SRGB, since the font image is data, not to be influenced by colour space.
+            .textureUsage : MTLTextureUsage.shaderRead.rawValue,
+            .textureStorageMode : MTLStorageMode.shared.rawValue,
+        ]
         guard let textureURL = Bundle.main.url(forResource: fontName, withExtension: "png") else {
             fatalError("Font atlas texture not found: \(fontName).png")
         }
-        let texture = try! textureLoader.newTexture(URL: textureURL, options: nil)
+        let texture = try! textureLoader.newTexture(URL: textureURL, options: options)
         
         return (fontAtlas, texture)
     }
