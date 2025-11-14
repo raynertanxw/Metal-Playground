@@ -13,7 +13,7 @@ In this project there are:
 - Native iOS and native MacOS targets
 - Max text, primitives, and textured quad draw limits.
 
-## What not to expect:
+## What NOT to expect:
 - Super clean industry practice commits and code.
 - 100% bug free.
 
@@ -26,7 +26,8 @@ In this project there are:
 # Future ideas / optimisations
 - Have a metal-cpp version for iOS target (currently metal-cpp source from apple is only for AppKit not UIKit)
 - Figure out how to properly make swift arrays faster, bypassing all safety checks to match performance of metal-cpp
-- Extend TextureAtlas shader pipeline to support multiple
+- Extend TextureAtlas shader pipeline to support multiple textures.
+- Combine all 3 shaders into 1, and get rid of the draw call type batching system (since there's no longer any need for it).
 
 # External Tools used:
 ## Font to MSDF font files
