@@ -62,35 +62,34 @@ struct TextFragmentUniforms {
 };
 
 // MARK: - Font Atlas Structs
-// TODO: Consider changing all doubles to floats
 struct AtlasMetrics {
     std::string type;
-    double distanceRange;
-    double size;
+    float distanceRange;
+    float size;
     int width;
     int height;
     std::string yOrigin;
 };
 
 struct FontMetrics {
-    double emSize;
-    double lineHeight;
-    double ascender;
-    double descender;
-    double underlineY;
-    double underlineThickness;
+    float emSize;
+    float lineHeight;
+    float ascender;
+    float descender;
+    float underlineY;
+    float underlineThickness;
 };
 
 struct Bounds {
-    double left;
-    double bottom;
-    double right;
-    double top;
+    float left;
+    float bottom;
+    float right;
+    float top;
 };
 
 struct Glyph {
     int unicode;
-    double advance;
+    float advance;
     std::optional<Bounds> planeBounds;
     std::optional<Bounds> atlasBounds;
 };
@@ -98,7 +97,7 @@ struct Glyph {
 struct Kerning {
     int unicode1;
     int unicode2;
-    double advance;
+    float advance;
 };
 
 struct FontAtlas {

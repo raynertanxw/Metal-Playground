@@ -1100,7 +1100,6 @@ extension float4x4 {
 }
 
 // MARK: - Font Atlas Structs
-// TODO: Consider changing all doubles to floats
 struct FontAtlas: Codable {
     let atlas: AtlasMetrics
     let metrics: FontMetrics
@@ -1110,38 +1109,38 @@ struct FontAtlas: Codable {
 
 struct AtlasMetrics: Codable {
     let type: String
-    let distanceRange: Double
-    let size: Double
+    let distanceRange: Float
+    let size: Float
     let width: Int
     let height: Int
     let yOrigin: String
 }
 
 struct FontMetrics: Codable {
-    let emSize: Double
-    let lineHeight: Double
-    let ascender: Double
-    let descender: Double
-    let underlineY: Double
-    let underlineThickness: Double
+    let emSize: Float
+    let lineHeight: Float
+    let ascender: Float
+    let descender: Float
+    let underlineY: Float
+    let underlineThickness: Float
 }
 
 struct Glyph: Codable {
     let unicode: Int
-    let advance: Double
+    let advance: Float
     let planeBounds: Bounds?
     let atlasBounds: Bounds?
 }
 
 struct Bounds: Codable {
-    let left: Double
-    let bottom: Double
-    let right: Double
-    let top: Double
+    let left: Float
+    let bottom: Float
+    let right: Float
+    let top: Float
 }
 
 struct Kerning: Codable {
     let unicode1: Int
     let unicode2: Int
-    let advance: Double
+    let advance: Float
 }
