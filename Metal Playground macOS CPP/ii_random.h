@@ -28,13 +28,22 @@ U32 RandomU32(RNG *r) { // wang hash
   return r->seed;
 }
 
-static F32 RandomF01     (RNG *rng                     ) {                     return RandomU32(rng)/(F32)U32_MAX;            }
-static F32 RandomN11     (RNG *rng                     ) {                     return RandomF01(rng)*2 - 1;                   }
-static U32 RandomChoice  (RNG *rng, U32 choiceCount    ) {                     return RandomU32(rng)%choiceCount;             }
-static B32 RandomChance  (RNG *rng, F32 chanceOfSuccess) {                     return RandomF01(rng) < chanceOfSuccess;       }
-static I32 RandomRangeI32(RNG *rng, I32 min, I32 max   ) { assert(max >= min); return min + RandomChoice(rng, max - min + 1); }
-static F32 RandomRangeF32(RNG *rng, F32 min, F32 max   ) { assert(max >= min); return F32Lerp(min, RandomF01(rng), max);      }
-static F64 RandomRangeF64(RNG *rng, F64 min, F64 max   ) { assert(max >= min); return F64Lerp(min, RandomF01(rng), max);      }
+static F32 __attribute__((unused)) RandomF01(RNG* rng) { return RandomU32(rng) / (F32)U32_MAX; }
+static F32 __attribute__((unused)) RandomN11(RNG* rng) { return RandomF01(rng) * 2 - 1; }
+static U32 __attribute__((unused)) RandomChoice(RNG* rng, U32 choiceCount) { return RandomU32(rng) % choiceCount; }
+static B32 __attribute__((unused)) RandomChance(RNG* rng, F32 chanceOfSuccess) { return RandomF01(rng) < chanceOfSuccess; }
+static I32 __attribute__((unused)) RandomRangeI32(RNG* rng, I32 min, I32 max) {
+    assert(max >= min);
+    return min + RandomChoice(rng, max - min + 1);
+}
+static F32 __attribute__((unused)) RandomRangeF32(RNG* rng, F32 min, F32 max) {
+    assert(max >= min);
+    return F32Lerp(min, RandomF01(rng), max);
+}
+static F64 __attribute__((unused)) RandomRangeF64(RNG* rng, F64 min, F64 max) {
+    assert(max >= min);
+    return F64Lerp(min, RandomF01(rng), max);
+}
 #define    RandomEnum(         rng, type, first, last  ) (                            (type)RandomRangeI32(rng, first, last)  )
 
 #endif
