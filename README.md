@@ -40,8 +40,14 @@ In this project there are:
 - Sometimes the current values don't give you a crisp enough MSDF result and text can look weird.
 - The resulting .json, .png, are to be placed into the `Metal Playground Shared/Resources` folder
 
+## JSON for Modern C++
+- Used a JSON library to help with parsing the MSDF font json files.
+- Used this github repo [https://github.com/nlohmann/json](https://github.com/nlohmann/json)
+- Only used for metal-cpp target, as we don't need this as JSON Codables are built into swift.
+
 ## STB_IMAGE
 - metal-cpp doesn't have helper funciton to load a texture resource. So had to create a custom loadTexture function.
 - So had to use `stb_image.h` from [https://github.com/nothings/stb](https://github.com/nothings/stb) to load the raw bytes from image resources.
 - This is to help with all the possible image file formats.
 - This is only used for the metal-cpp target, as we don't need this if we have access to Swift's MTKTextureLoader.
+
