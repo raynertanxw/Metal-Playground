@@ -45,13 +45,6 @@
 			);
 			target = E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */;
 		};
-		E6788FAD2EC729B700B1CE8B /* Exceptions for "Metal Playground iOS" folder in "Metal Playground macOS" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				SceneDelegate.swift,
-			);
-			target = E679A9172E33C80B001B2974 /* Metal Playground macOS */;
-		};
 		E6CECE612E44EF860005068C /* Exceptions for "Metal Playground Shared" folder in "Metal Playground macOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -86,9 +79,6 @@
 		};
 		E6CECE4B2E44ECDC0005068C /* Metal Playground iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				E6788FAD2EC729B700B1CE8B /* Exceptions for "Metal Playground iOS" folder in "Metal Playground macOS" target */,
-			);
 			path = "Metal Playground iOS";
 			sourceTree = "<group>";
 		};
