@@ -11,6 +11,8 @@ In this project there are:
   - MSDF based text
 - Drawcalls are batched by shader types automatically,
 - Native iOS and native MacOS targets
+	- MacOS has swift and CPP targets. Swift one is more to align with iOS to make it easier to port over iOS games with mac. CPP is for much higher power or if you are more used to C / C++ in general.
+	- NOTE: c++ only used for the MacOS CPP target
 - Max text, primitives, and textured quad draw limits.
 
 ## What NOT to expect:
@@ -31,13 +33,8 @@ In this project there are:
 
 # External Tools used:
 ## Font to MSDF font files
-- Public github tool (can only run on windows) [https://github.com/Chlumsky/msdf-atlas-gen](https://github.com/Chlumsky/msdf-atlas-gen)
-- Download the tool
-- `cd` into the directory with the `msdf-atlas-gen` exe
-- Place your `.ttf` font file in the same directory
-- Run the following command `msdf-atlas-gen -font <font-file>.ttf -imageout <font-name>.png -json <font-name>.json -size 128 -pxrange 8`
-- Values to tinker with are `-size` and `-pxrange`, depending on the font, you may want to adjust these. Don't be afraid to go higher in size.
-- Sometimes the current values don't give you a crisp enough MSDF result and text can look weird.
+- Public github tool [https://github.com/Chlumsky/msdf-atlas-gen](https://github.com/Chlumsky/msdf-atlas-gen)
+- Refer to [this guide](_EXTERNAL_TOOLS/msdf-atlas-gen/mdsf-atlas-gen-README.md) for how to use the tool (and optionally build it yourself again for mac as author only provides .exe releases)
 - The resulting .json, .png, are to be placed into the `Metal Playground Shared/Resources` folder
 
 ## JSON for Modern C++
