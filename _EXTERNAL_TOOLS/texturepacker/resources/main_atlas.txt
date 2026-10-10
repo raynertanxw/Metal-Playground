@@ -1,3 +1,8 @@
-2
+7
+Circle_Blue 256 0 64 64
 player_1 0 0 128 128
+Circle_SkyBlue 320 0 64 64
 player_2 128 0 128 128
+Circle_Maroon 384 0 64 64
+Circle_Violet 448 0 64 64
+Circle_White 512 0 64 64

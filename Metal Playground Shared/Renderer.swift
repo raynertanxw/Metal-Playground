@@ -199,7 +199,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         // Load Textures & Fonts
         self.mainAtlasTexture = Renderer.loadTexture(device: device, name: "main_atlas")
-        self.mainAtlasUVRects = Renderer.loadAtlasUV(named: "main_atlas", textureWidth: 256, textureHeight: 256)
+        self.mainAtlasUVRects = Renderer.loadAtlasUV(named: "main_atlas", textureWidth: 2048, textureHeight: 2048)
         let fontName = "roboto"
         (self.fontAtlas, self.fontTexture) = Self.loadFontAtlas(device: device, fontName: fontName)
         (self.fontGlyphs, self.fontKerning) = Self.preprocessFontData(fontAtlas: fontAtlas)
