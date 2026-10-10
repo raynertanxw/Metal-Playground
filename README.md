@@ -37,12 +37,17 @@ In this project there are:
 - Refer to [this guide](_EXTERNAL_TOOLS/msdf-atlas-gen/mdsf-atlas-gen-README.md) for how to use the tool (and optionally build it yourself again for mac as author only provides .exe releases)
 - The resulting .json, .png, are to be placed into the `Metal Playground Shared/Resources` folder
 
-## JSON for Modern C++
+## Custom Sprite Packer Tool
+- A customised texture atlas generator that generates the `.png` and `.txt` texture atlas assets that MetalPlayground uses by default.
+- Refer to [this guide](_EXTERNAL_TOOLS/texturepacker/texturepacker-README.md) for how to use the tool.
+
+## Used only for Mac CPP target
+### JSON for Modern C++
 - Used a JSON library to help with parsing the MSDF font json files.
 - Used this github repo [https://github.com/nlohmann/json](https://github.com/nlohmann/json)
 - Only used for metal-cpp target, as we don't need this as JSON Codables are built into swift.
 
-## STB_IMAGE
+### STB_IMAGE
 - metal-cpp doesn't have helper funciton to load a texture resource. So had to create a custom loadTexture function.
 - So had to use `stb_image.h` from [https://github.com/nothings/stb](https://github.com/nothings/stb) to load the raw bytes from image resources.
 - This is to help with all the possible image file formats.
