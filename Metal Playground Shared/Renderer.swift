@@ -1,6 +1,5 @@
 //
 //  Renderer.swift
-//  Metal_Primitive_Playground
 //
 //  Created by Rayner Tan on 25/7/25.
 //
@@ -29,15 +28,15 @@ struct AtlasUVRect {
     var maxUV: SIMD2<Float> // top-right
 }
 
-struct PrimitiveVertex {
+struct EntityVertex {
     var position: SIMD2<Float>
 }
 
-struct PrimitiveUniforms {
+struct EntityUniforms {
     var projectionMatrix: float4x4
 }
 
-struct PrimitiveInstanceData {
+struct EntityInstanceData {
     var transform: simd_float4x4
     var color: SIMD4<Float>
     var shapeType: Int
@@ -97,23 +96,23 @@ class Renderer: NSObject, MTKViewDelegate {
     private let atlasSamplerState: MTLSamplerState
     
     
-    // MARK: - PRIMITIVE PIPELINE VARs
-    private var primitivePipelineState: MTLRenderPipelineState
-    private var primitiveVertexBuffer: MTLBuffer
-    private var primitiveTriInstanceBuffer: MTLBuffer
-    private var primitiveTriInstanceBufferOffset = 0
-    private var primitiveInstancesPtr: UnsafeMutablePointer<PrimitiveInstanceData>
-    private let primitiveMaxInstanceCount = 50000
-    private var primitiveInstanceCount = 0
+    // MARK: - ENTITY PIPELINE VARs
+    private var entityPipelineState: MTLRenderPipelineState
+    private var entityVertexBuffer: MTLBuffer
+    private var entityTriInstanceBuffer: MTLBuffer
+    private var entityTriInstanceBufferOffset = 0
+    private var entityInstancesPtr: UnsafeMutablePointer<EntityInstanceData>
+    private let entityMaxInstanceCount = 50000
+    private var entityInstanceCount = 0
     
-    private let primitiveSquareVertices: [PrimitiveVertex] = [
-        PrimitiveVertex(position: [-0.5, -0.5]),
-        PrimitiveVertex(position: [0.5, -0.5]),
-        PrimitiveVertex(position: [-0.5, 0.5]),
-        PrimitiveVertex(position: [0.5, 0.5])
+    private let entityBaseSquareVertices: [EntityVertex] = [
+        EntityVertex(position: [-0.5, -0.5]),
+        EntityVertex(position: [0.5, -0.5]),
+        EntityVertex(position: [-0.5, 0.5]),
+        EntityVertex(position: [0.5, 0.5])
     ]
     
-    private var primitiveUniforms = PrimitiveUniforms(projectionMatrix: matrix_identity_float4x4)
+    private var entityUniforms = EntityUniforms(projectionMatrix: matrix_identity_float4x4)
     
     
     // MARK: - TEXT PIPELINE VARS
@@ -135,7 +134,7 @@ class Renderer: NSObject, MTKViewDelegate {
     enum DrawBatchType: Int {
         case none = 0
         case atlas = 1
-        case primitive = 2
+        case entity = 2
         case text = 3
         case count = 4
     }
@@ -161,7 +160,7 @@ class Renderer: NSObject, MTKViewDelegate {
     init?(mtkView: MTKView) {
         // TODO: Figure out how to assert the padding and stride of the shader structs too!
         assert(MemoryLayout<AtlasInstanceData>.stride == 128);
-        assert(MemoryLayout<PrimitiveInstanceData>.stride == 128);
+        assert(MemoryLayout<EntityInstanceData>.stride == 128);
         assert(MemoryLayout<TextVertex>.stride == 32);
         
         self.inFlightSemaphore = DispatchSemaphore(value: Self.maxBuffersInFlight)
@@ -172,7 +171,7 @@ class Renderer: NSObject, MTKViewDelegate {
         self.strideSizesPtr = .allocate(capacity: DrawBatchType.count.rawValue)
         self.strideSizesPtr.initialize(repeating: 0, count: DrawBatchType.count.rawValue)
         self.strideSizesPtr[DrawBatchType.atlas.rawValue] = MemoryLayout<AtlasInstanceData>.stride
-        self.strideSizesPtr[DrawBatchType.primitive.rawValue] = MemoryLayout<PrimitiveInstanceData>.stride
+        self.strideSizesPtr[DrawBatchType.entity.rawValue] = MemoryLayout<EntityInstanceData>.stride
         self.strideSizesPtr[DrawBatchType.text.rawValue] = MemoryLayout<TextVertex>.stride
 
         guard let device = mtkView.device else { fatalError("Unable to obtain MTLDevice from MTKView") }
@@ -184,9 +183,9 @@ class Renderer: NSObject, MTKViewDelegate {
         (self.atlasVertexBuffer, self.atlasTriInstanceBuffer) = Self.buildAtlasBuffers(device: device, vertices: atlasSquareVertices, maxCount: atlasMaxInstanceCount)
         self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
 
-        // Build Primitive Buffers
-        (self.primitiveVertexBuffer, self.primitiveTriInstanceBuffer) = Self.buildPrimitiveBuffers(device: device, vertices: primitiveSquareVertices, maxCount: primitiveMaxInstanceCount)
-        self.primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+        // Build Entity Buffers
+        (self.entityVertexBuffer, self.entityTriInstanceBuffer) = Self.buildEntityBuffers(device: device, vertices: entityBaseSquareVertices, maxCount: entityMaxInstanceCount)
+        self.entityInstancesPtr = UnsafeMutableRawPointer(entityTriInstanceBuffer.contents()).bindMemory(to: EntityInstanceData.self, capacity: entityMaxInstanceCount)
         
         // Build Text Buffers
         self.textTriVertexBuffer = Self.buildTextBuffers(device: device, maxSize:   textMaxVertexCount)
@@ -194,7 +193,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
         // Build Pipelines & Descriptors & Misc
         (self.atlasPipelineState, self.atlasSamplerState) = Self.buildAtlasPipeline(device: device, mtkView: mtkView)
-        self.primitivePipelineState = Self.buildPrimitivePipeline(device: device, mtkView: mtkView)
+        self.entityPipelineState = Self.buildEntityPipeline(device: device, mtkView: mtkView)
         (self.textPipelineState, self.textSamplerState) = Self.buildTextPipeline(device: device, mtkView: mtkView)
         
         // Load Textures & Fonts
@@ -224,20 +223,20 @@ class Renderer: NSObject, MTKViewDelegate {
         return (atlasVertexBuffer, atlasTriInstanceBuffer)
     }
     
-    private class func buildPrimitiveBuffers(device: MTLDevice, vertices primitiveSquareVertices: [PrimitiveVertex], maxCount primitiveMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
-        guard let primitiveVertexBuffer = device.makeBuffer(
-            bytes: primitiveSquareVertices,
-            length: primitiveSquareVertices.count * MemoryLayout<PrimitiveVertex>.stride,
-            options: []) else { fatalError("Unable to create vertex buffer for primitives") }
-        primitiveVertexBuffer.label = "Primitive Square Vertex Buffer"
+    private class func buildEntityBuffers(device: MTLDevice, vertices entityBaseSquareVertices: [EntityVertex], maxCount entityMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
+        guard let entityVertexBuffer = device.makeBuffer(
+            bytes: entityBaseSquareVertices,
+            length: entityBaseSquareVertices.count * MemoryLayout<EntityVertex>.stride,
+            options: []) else { fatalError("Unable to create vertex buffer for entities") }
+        entityVertexBuffer.label = "Entity Square Vertex Buffer"
         
-        let primitiveTriInstanceBufferSize = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * maxBuffersInFlight
-        guard let primitiveTriInstanceBuffer = device.makeBuffer(
-            length: primitiveTriInstanceBufferSize,
-            options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for primitives") }
-        primitiveTriInstanceBuffer.label = "Primitive Tri Instance Buffer"
+        let entityTriInstanceBufferSize = MemoryLayout<EntityInstanceData>.stride * entityMaxInstanceCount * maxBuffersInFlight
+        guard let entityTriInstanceBuffer = device.makeBuffer(
+            length: entityTriInstanceBufferSize,
+            options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for entities") }
+        entityTriInstanceBuffer.label = "Entity Tri Instance Buffer"
         
-        return (primitiveVertexBuffer, primitiveTriInstanceBuffer)
+        return (entityVertexBuffer, entityTriInstanceBuffer)
     }
     
     private class func buildTextBuffers(device: MTLDevice, maxSize vertexBufferCapacity: Int) -> (MTLBuffer) {
@@ -256,8 +255,8 @@ class Renderer: NSObject, MTKViewDelegate {
         atlasTriInstanceBufferOffset = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * triBufferIndex
         atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).advanced(by: atlasTriInstanceBufferOffset).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
         
-        primitiveTriInstanceBufferOffset = MemoryLayout<PrimitiveInstanceData>.stride * primitiveMaxInstanceCount * triBufferIndex
-        primitiveInstancesPtr = UnsafeMutableRawPointer(primitiveTriInstanceBuffer.contents()).advanced(by: primitiveTriInstanceBufferOffset).bindMemory(to: PrimitiveInstanceData.self, capacity: primitiveMaxInstanceCount)
+        entityTriInstanceBufferOffset = MemoryLayout<EntityInstanceData>.stride * entityMaxInstanceCount * triBufferIndex
+        entityInstancesPtr = UnsafeMutableRawPointer(entityTriInstanceBuffer.contents()).advanced(by: entityTriInstanceBufferOffset).bindMemory(to: EntityInstanceData.self, capacity: entityMaxInstanceCount)
         
         textTriInstanceBufferOffset = MemoryLayout<TextVertex>.stride * textMaxVertexCount * triBufferIndex
         textVertexBufferPtr = UnsafeMutableRawPointer(textTriVertexBuffer.contents()).advanced(by: textTriInstanceBufferOffset).bindMemory(to: TextVertex.self, capacity: textMaxVertexCount)
@@ -313,17 +312,17 @@ class Renderer: NSObject, MTKViewDelegate {
         return (atlasPipelineState, atlasSamplerState)
     }
     
-    private class func buildPrimitivePipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
+    private class func buildEntityPipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
         
-        let primitivePipelineDescriptor = MTLRenderPipelineDescriptor()
-        primitivePipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_primitive")
-        primitivePipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_primitive")
+        let entityPipelineDescriptor = MTLRenderPipelineDescriptor()
+        entityPipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_entity")
+        entityPipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_entity")
         
         // Enable alpha blending
-        let colorAttachment = primitivePipelineDescriptor.colorAttachments[0]!
+        let colorAttachment = entityPipelineDescriptor.colorAttachments[0]!
         colorAttachment.pixelFormat = mtkView.colorPixelFormat
         colorAttachment.isBlendingEnabled = true
         colorAttachment.rgbBlendOperation = .add
@@ -333,10 +332,10 @@ class Renderer: NSObject, MTKViewDelegate {
         colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
         colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
         
-        guard let primitivePipelineState = try? device.makeRenderPipelineState(descriptor: primitivePipelineDescriptor) else {
-            fatalError("Unable to create primitive pipeline state")
+        guard let entityPipelineState = try? device.makeRenderPipelineState(descriptor: entityPipelineDescriptor) else {
+            fatalError("Unable to create entity pipeline state")
         }
-        return primitivePipelineState
+        return entityPipelineState
     }
     
     private class func buildTextPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
@@ -502,45 +501,45 @@ class Renderer: NSObject, MTKViewDelegate {
         }()
     }
     
-    private func testDrawPrimitives() {
+    private func testDrawEntities() {
         let circleCount = 30000
         var rng = FastRandom(seed: UInt64(time * 1000000))
         var color = SIMD4<Float>.zero
         
-        for _ in 0..<circleCount {
-            let x = rng.nextFloat(min: Float(-screenSize.width), max: Float(screenSize.width))
-            let y = rng.nextFloat(min: Float(-screenSize.height), max: Float(screenSize.height))
-            let radius = rng.nextFloat(min: 5, max: 25)
-            
-            color.x = rng.nextUnitFloat()
-            color.y = rng.nextUnitFloat()
-            color.z = rng.nextUnitFloat()
-            color.w = 1.0
-            
-            drawPrimitiveCircle(x: x, y: y, radius: radius, color: color)
-        }
+//        for _ in 0..<circleCount {
+//            let x = rng.nextFloat(min: Float(-screenSize.width), max: Float(screenSize.width))
+//            let y = rng.nextFloat(min: Float(-screenSize.height), max: Float(screenSize.height))
+//            let radius = rng.nextFloat(min: 5, max: 25)
+//            
+//            color.x = rng.nextUnitFloat()
+//            color.y = rng.nextUnitFloat()
+//            color.z = rng.nextUnitFloat()
+//            color.w = 1.0
+//            
+//            drawEntityCircle(x: x, y: y, radius: radius, color: color)
+//        }
         
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
-        //        drawPrimitiveCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
-        //        drawPrimitiveCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-        //        drawPrimitiveLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-        //        drawPrimitiveRectLines(x: 0, y: 0, width: 800, height: 600, thickness: 48, r: 0, g: 255, b: 255, a: 255)
-        //        drawPrimitiveRect(x: 0, y: 0, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
-        //        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
-        //        drawPrimitiveRect(x: 0, y: 0, width: 24, height: 600, r: 255, g: 0, b: 0, a: 64)
-        //        drawPrimitiveRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-        //        drawPrimitiveRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
-        //        drawPrimitiveRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-        //        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-        //        drawPrimitiveRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
-        //        drawPrimitiveCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
-        //        drawPrimitiveRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
-        //        drawPrimitiveCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
-        //        drawPrimitiveCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
-        //        drawPrimitiveRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
+        drawEntityCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
+        drawEntityCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
+        drawEntityCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
+        drawEntityCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
+        drawEntityCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
+        drawEntityCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
+        drawEntityLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        drawEntityRectLines(x: 0, y: 0, width: 800, height: 600, thickness: 48, r: 0, g: 255, b: 255, a: 255)
+        drawEntityRect(x: 0, y: 0, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
+        drawEntityRect(x: -800, y: -600, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
+        drawEntityRect(x: 0, y: 0, width: 24, height: 600, r: 255, g: 0, b: 0, a: 64)
+        drawEntityRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
+        drawEntityRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
+        drawEntityRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
+        drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+        drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+        drawEntityCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
+        drawEntityRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
+        drawEntityCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
+        drawEntityCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
+        drawEntityRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
     }
     
     private func testDrawTextWithBounds() {
@@ -549,10 +548,10 @@ class Renderer: NSObject, MTKViewDelegate {
         let now = Date().timeIntervalSince1970
         let text = "Hello, SDF\nWorld!\n\n\(Int(now))"
         let textBounds = measureTextBounds(for: text, withSize: fontSize)
-        drawPrimitiveCircle(x: -Float(textBounds.width / 2.0),
+        drawEntityCircle(x: -Float(textBounds.width / 2.0),
                             y: Float(textBounds.height / 2.0),
                             radius: 16, color: SIMD4<Float>.one)
-        drawPrimitiveRect(
+        drawEntityRect(
             x: -Float(textBounds.width / 2.0),
             y: -(textBounds.height / 2.0),
             width: textBounds.width,
@@ -577,63 +576,63 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     private func testUpdateGameState() {
-        testDrawPrimitives()
-        testDrawSprites()
-        testDrawTextWithBounds()
+        testDrawEntities()
+//        testDrawSprites()
+//        testDrawTextWithBounds()
         
-        let wave1 = sin(time * 1.5) * 300
-        let wave2 = cos(time * 0.8) * 200
-        let wave3 = sin(time * 3.2) * 100
-        let circleX = sin(time * 2.0) * 256
-        let circleY = cos(time * 1.0) * 128
+//        let wave1 = sin(time * 1.5) * 300
+//        let wave2 = cos(time * 0.8) * 200
+//        let wave3 = sin(time * 3.2) * 100
+//        let circleX = sin(time * 2.0) * 256
+//        let circleY = cos(time * 1.0) * 128
         
-        drawSprite(spriteName: "player_2",
-                   x: wave1,
-                   y: wave2,
-                   width: 256 + wave3,
-                   height: 256 + wave3,
-                   color: SIMD4<Float>.one)
-        
-        drawPrimitiveCircle(x: circleX,
-                            y: circleY,
-                            radius: 128 + sin(time * 4.0) * 64,
-                            color: [1, 0.3, 0.5, 1])
-        
-        drawSprite(spriteName: "player_2",
-                   x: -circleX,
-                   y: -circleY,
-                   width: 128,
-                   height: 128,
-                   color: SIMD4<Float>(1, 1, 1, 1))
-        
-        let textYOffset = sin(time * 1.2) * 40
-        drawText(text: "Dynamic Text\nis Alive!",
-                 posX: -200,
-                 posY: 300 + textYOffset,
-                 fontSize: 64 + sin(time * 2.5) * 8,
-                 color: SIMD4<Float>(1, 0.8, 0.2, 1))
-        
-                
-        drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
-
-        let scrollOffset = sin(time * 0.5) * 150
-        
-        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
-                 posX: -600 + scrollOffset,
-                 posY: 600,
-                 fontSize: 96,
-                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
-        
-        drawPrimitiveCircle(x: sin(time * 0.7) * 600,
-                            y: cos(time * 0.9) * 500,
-                            radius: 64,
-                            color: [0, 0.5, 0.5, 1])
-        
-        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
-                 posX: -900 - scrollOffset,
-                 posY: 100,
-                 fontSize: 96,
-                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
+//        drawSprite(spriteName: "player_2",
+//                   x: wave1,
+//                   y: wave2,
+//                   width: 256 + wave3,
+//                   height: 256 + wave3,
+//                   color: SIMD4<Float>.one)
+//        
+//        drawEntityCircle(x: circleX,
+//                            y: circleY,
+//                            radius: 128 + sin(time * 4.0) * 64,
+//                            color: [1, 0.3, 0.5, 1])
+//        
+//        drawSprite(spriteName: "player_2",
+//                   x: -circleX,
+//                   y: -circleY,
+//                   width: 128,
+//                   height: 128,
+//                   color: SIMD4<Float>(1, 1, 1, 1))
+//        
+//        let textYOffset = sin(time * 1.2) * 40
+//        drawText(text: "Dynamic Text\nis Alive!",
+//                 posX: -200,
+//                 posY: 300 + textYOffset,
+//                 fontSize: 64 + sin(time * 2.5) * 8,
+//                 color: SIMD4<Float>(1, 0.8, 0.2, 1))
+//        
+//                
+//        drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
+//
+//        let scrollOffset = sin(time * 0.5) * 150
+//        
+//        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
+//                 posX: -600 + scrollOffset,
+//                 posY: 600,
+//                 fontSize: 96,
+//                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
+//        
+//        drawEntityCircle(x: sin(time * 0.7) * 600,
+//                            y: cos(time * 0.9) * 500,
+//                            radius: 64,
+//                            color: [0, 0.5, 0.5, 1])
+//        
+//        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
+//                 posX: -900 - scrollOffset,
+//                 posY: 100,
+//                 fontSize: 96,
+//                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
     }
     
     // MARK: - DRAW FUNCTION
@@ -652,7 +651,7 @@ class Renderer: NSObject, MTKViewDelegate {
             for index in 0..<DrawBatchType.count.rawValue { self.nextStartIndexForTypePtr[index] = 0 }
             curDrawBatchType = .none
             atlasInstanceCount = 0
-            primitiveInstanceCount = 0
+            entityInstanceCount = 0
             textVertexCount = 0
 
             
@@ -689,18 +688,18 @@ class Renderer: NSObject, MTKViewDelegate {
                                                vertexCount: atlasSquareVertices.count,
                                                instanceCount: batch.count)
                         
-                    case .primitive:
-                        encoder.setRenderPipelineState(primitivePipelineState)
-                        encoder.setVertexBuffer(primitiveVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
+                    case .entity:
+                        encoder.setRenderPipelineState(entityPipelineState)
+                        encoder.setVertexBuffer(entityVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
                         
-                        encoder.setVertexBuffer(primitiveTriInstanceBuffer,
-                                                offset: primitiveTriInstanceBufferOffset + (MemoryLayout<PrimitiveInstanceData>.stride * batch.startIndex),
+                        encoder.setVertexBuffer(entityTriInstanceBuffer,
+                                                offset: entityTriInstanceBufferOffset + (MemoryLayout<EntityInstanceData>.stride * batch.startIndex),
                                                 index: BufferIndex.instances.rawValue)
                         
-                        encoder.setVertexBytes(&primitiveUniforms, length: MemoryLayout<PrimitiveUniforms>.stride, index: BufferIndex.uniforms.rawValue)
+                        encoder.setVertexBytes(&entityUniforms, length: MemoryLayout<EntityUniforms>.stride, index: BufferIndex.uniforms.rawValue)
                         encoder.drawPrimitives(type: .triangleStrip,
                                                vertexStart: 0,
-                                               vertexCount: primitiveSquareVertices.count,
+                                               vertexCount: entityBaseSquareVertices.count,
                                                instanceCount: batch.count)
                         
                     case .text:
@@ -749,7 +748,7 @@ class Renderer: NSObject, MTKViewDelegate {
         print("drawableSizeWillChange called, \(size.debugDescription)")
         screenSize = size
         projectionMatrix = float4x4.pixelSpaceProjection(screenWidth: Float(size.width), screenHeight: Float(size.height))
-        primitiveUniforms = PrimitiveUniforms(projectionMatrix: projectionMatrix)
+        entityUniforms = EntityUniforms(projectionMatrix: projectionMatrix)
     }
     
     @inline(__always)
@@ -783,7 +782,7 @@ class Renderer: NSObject, MTKViewDelegate {
             nextStartIndex += alignmentCount - misalignment
         }
         assert(type == .atlas ? (nextStartIndex + increment) < atlasMaxInstanceCount : true)
-        assert(type == .primitive ? (nextStartIndex + increment) < primitiveMaxInstanceCount : true)
+        assert(type == .entity ? (nextStartIndex + increment) < entityMaxInstanceCount : true)
         assert(type == .text ? (nextStartIndex + increment) < textMaxVertexCount : true)
         
         curDrawBatchType = type
@@ -814,38 +813,38 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
-    private func drawPrimitiveCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    private func drawEntityCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawEntityCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawPrimitiveCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = PrimitiveInstanceData(
+    private func drawEntityCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
             shapeType: ShapeType.circle.rawValue,
             sdfParams: SIMD4<Float>(radius, 0.5, 0, 0) // hardcode edge softness to 0.5
         )
-        primitiveInstanceCount += 1
+        entityInstanceCount += 1
     }
     
-    private func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawPrimitiveCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    private func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawEntityCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawPrimitiveCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = PrimitiveInstanceData(
+    private func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
             shapeType: ShapeType.circleLines.rawValue,
             sdfParams: SIMD4<Float>(radius, 0.5, thickness / 2.0, 0) // hardcode edge softness to 0.5
         )
-        primitiveInstanceCount += 1
+        entityInstanceCount += 1
     }
     
-    private func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawPrimitiveLine(x1: x1, y1: y1, x2: x2, y2: y2, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    private func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawEntityLine(x1: x1, y1: y1, x2: x2, y2: y2, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawPrimitiveLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: SIMD4<Float>) {
+    private func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: SIMD4<Float>) {
         let dx = x2 - x1
         let dy = y2 - y1
         let length = sqrt(dx * dx + dy * dy)
@@ -861,64 +860,64 @@ class Renderer: NSObject, MTKViewDelegate {
         float4x4(rotationZ: angle) *
         float4x4(scaleX: length, scaleY: thickness)
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = PrimitiveInstanceData(
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: transform,
             color: color,
             shapeType: ShapeType.rect.rawValue,
             sdfParams: SIMD4<Float>(0, 0, 0, 0)
         )
-        primitiveInstanceCount += 1
+        entityInstanceCount += 1
     }
     
-    private func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawPrimitiveRect(x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    private func drawEntityRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawEntityRect(x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawPrimitiveRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = PrimitiveInstanceData(
+    private func drawEntityRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
             color: color,
             shapeType: ShapeType.rect.rawValue,
             sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
         )
-        primitiveInstanceCount += 1
+        entityInstanceCount += 1
     }
     
-    private func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
+    private func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
                                   r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawPrimitiveRoundedRect(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius,
+        drawEntityRoundedRect(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius,
                                  color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawPrimitiveRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
+    private func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = PrimitiveInstanceData(
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: color,
             shapeType: ShapeType.roundedRect.rawValue,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
         )
-        primitiveInstanceCount += 1
+        entityInstanceCount += 1
     }
     
-    private func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawPrimitiveRectLines(x: x, y: y, width: width, height: height, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    private func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawEntityRectLines(x: x, y: y, width: width, height: height, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawPrimitiveRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
+    private func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .primitive, increment: 1)
-        primitiveInstancesPtr[index] = PrimitiveInstanceData(
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: color,
             shapeType: ShapeType.rectLines.rawValue,
             sdfParams: SIMD4<Float>(halfWidth, halfHeight, thickness, 0)
         )
-        primitiveInstanceCount += 1
+        entityInstanceCount += 1
     }
     // MARK: - Text Drawing Functions
     private func drawText(text: String,

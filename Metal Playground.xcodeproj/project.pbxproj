@@ -40,6 +40,7 @@
 				Resources/roboto.json,
 				Resources/roboto.png,
 				Shader_Atlas.metal,
+				Shader_Entity.metal,
 				Shader_Primitive.metal,
 				Shader_Text.metal,
 			);
@@ -55,6 +56,7 @@
 				Resources/roboto.json,
 				Resources/roboto.png,
 				Shader_Atlas.metal,
+				Shader_Entity.metal,
 				Shader_Primitive.metal,
 				Shader_Text.metal,
 				Utils.swift,
