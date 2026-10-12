@@ -7,22 +7,6 @@
 import MetalKit
 
 // MARK: - Pipeline Structs
-struct AtlasVertex {
-    var position: SIMD2<Float>
-    var uv: SIMD2<Float>
-}
-
-struct AtlasInstanceData {
-    var transform: simd_float4x4
-    var color: SIMD4<Float>
-    var uvMin: SIMD2<Float>
-    var uvMax: SIMD2<Float>
-    var __padding: (UInt32, UInt32, UInt32, UInt32,
-                    UInt32, UInt32, UInt32, UInt32) = (
-                        0,0,0,0,
-                        0,0,0,0)
-}
-
 struct AtlasUVRect {
     var minUV: SIMD2<Float> // bottom-left
     var maxUV: SIMD2<Float> // top-right
@@ -37,11 +21,12 @@ struct EntityUniforms {
 }
 
 struct EntityInstanceData {
-    var transform: simd_float4x4
-    var color: SIMD4<Float>
-    var shapeType: UInt32
-    var sdfParams: SIMD4<Float>
-    var __padding: (UInt32, UInt32, UInt32, UInt32) = (0,0,0,0)
+    var transform: simd_float4x4  // 64 bytes
+    var color: SIMD4<Float>       // 16 bytes
+    var atlasUVs: SIMD4<Float>    // 16 bytes (x: minU, y: minV, z: maxU, w: maxV)
+    var sdfParams: SIMD4<Float>   // 16 bytes
+    var shapeType: UInt32         // 4  bytes
+    var __padding: (UInt32, UInt32, UInt32) = (0,0,0) // 12 bytes
 }
 
 struct TextVertex {
