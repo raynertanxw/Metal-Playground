@@ -19,14 +19,16 @@ struct EntityUniforms {
 struct EntityInstanceData {
     float4x4 transform;
     float4 color;
-    uint32_t shapeType;
+    float4 atlasUVs;
     float4 sdfParams;
-    uint32_t __padding[4];
+    uint32_t shapeType;
+    uint32_t __padding[3];
 };
 
 struct EntityVOut {
     float4 position [[position]];
     float2 localPos;
+    float2 atlasUV;
     float4 color;
     uint32_t shapeType;
     float4 sdfParams;
@@ -34,7 +36,7 @@ struct EntityVOut {
 
 vertex EntityVOut vertex_entity(uint vertexId [[vertex_id]],
                                       uint instanceId [[instance_id]],
-                                      const constant EntityVertex* vertices [[buffer(BufferIndexVertices)]],
+                                      const constant EntityVertex *vertices [[buffer(BufferIndexVertices)]],
                                       const constant EntityInstanceData *instances [[buffer(BufferIndexInstances)]],
                                       const constant EntityUniforms& uniforms [[buffer(BufferIndexUniforms)]])
 {
@@ -43,6 +45,13 @@ vertex EntityVOut vertex_entity(uint vertexId [[vertex_id]],
     
     EntityVOut out;
     out.localPos = v.position; // Keep for SDF evaluation
+    
+    // Mathematically derive 0-to-1 base UV from the [-0.5, 0.5] quad
+    float2 baseUV = float2(v.position.x + 0.5, 0.5 - v.position.y);
+    
+    // Mix (lerp) base UV into the bounds specified by the instance atlasUVs
+    // xy = min UV, zw = max UV
+    out.atlasUV = mix(inst.atlasUVs.xy, inst.atlasUVs.zw, baseUV);
     
     float4 worldPos = inst.transform * float4(v.position, 0.0, 1.0);
     out.position = uniforms.projectionMatrix * worldPos;
@@ -54,7 +63,17 @@ vertex EntityVOut vertex_entity(uint vertexId [[vertex_id]],
     return out;
 }
 
-fragment float4 fragment_entity(EntityVOut in [[stage_in]]) {
+fragment float4 fragment_entity(EntityVOut in [[stage_in]],
+                                texture2d<float> tex [[texture(0)]],
+                                sampler samp [[sampler(0)]]) {
+    
+    // 1. Process Atlas Texture Draw First
+    if (in.shapeType == ShapeTypeAtlas) {
+        float4 texColor = tex.sample(samp, in.atlasUV);
+        return texColor * in.color;
+    }
+    
+    // 2. Otherwise, evaluate SDF primitives
     float2 uv = in.localPos;
     float alpha = 0.0;
 
