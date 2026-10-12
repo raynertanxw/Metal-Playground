@@ -39,7 +39,7 @@ struct EntityUniforms {
 struct EntityInstanceData {
     var transform: simd_float4x4
     var color: SIMD4<Float>
-    var shapeType: Int
+    var shapeType: UInt32
     var sdfParams: SIMD4<Float>
     var __padding: (UInt32, UInt32, UInt32, UInt32) = (0,0,0,0)
 }

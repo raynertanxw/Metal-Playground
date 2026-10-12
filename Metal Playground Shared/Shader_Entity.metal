@@ -19,7 +19,7 @@ struct EntityUniforms {
 struct EntityInstanceData {
     float4x4 transform;
     float4 color;
-    int shapeType;
+    uint32_t shapeType;
     float4 sdfParams;
     uint32_t __padding[4];
 };
@@ -28,7 +28,7 @@ struct EntityVOut {
     float4 position [[position]];
     float2 localPos;
     float4 color;
-    int shapeType;
+    uint32_t shapeType;
     float4 sdfParams;
 };
 
