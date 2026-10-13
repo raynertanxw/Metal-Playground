@@ -59,22 +59,6 @@ class Renderer: NSObject, MTKViewDelegate {
     var onFramePresented: ((Double) -> Void)?
 
     
-    // MARK: - ATLAS PIPELINE VARS
-    private var atlasPipelineState: MTLRenderPipelineState
-    private var atlasVertexBuffer: MTLBuffer
-    private var atlasTriInstanceBuffer: MTLBuffer
-    private var atlasTriInstanceBufferOffset = 0
-    private var atlasInstancesPtr: UnsafeMutablePointer<AtlasInstanceData>
-    private let atlasMaxInstanceCount = 50000
-    private var atlasInstanceCount = 0
-    
-    private let atlasSquareVertices: [AtlasVertex] = [
-        AtlasVertex(position: [-0.5, -0.5], uv: [0, 1]),
-        AtlasVertex(position: [ 0.5, -0.5], uv: [1, 1]),
-        AtlasVertex(position: [-0.5,  0.5], uv: [0, 0]),
-        AtlasVertex(position: [ 0.5,  0.5], uv: [1, 0]),
-    ]
-    
     // TODO: Use Arguement buffers to pass multiple texture atlasses?
     private var mainAtlasTexture: MTLTexture!
     private var mainAtlasUVRects: [String: AtlasUVRect] = [:]
@@ -118,10 +102,9 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - Draw Command Batching
     enum DrawBatchType: Int {
         case none = 0
-        case atlas = 1
-        case entity = 2
-        case text = 3
-        case count = 4
+        case entity = 1
+        case text = 2
+        case count = 3
     }
     struct DrawBatch {
         var type: DrawBatchType
@@ -144,7 +127,6 @@ class Renderer: NSObject, MTKViewDelegate {
     // MARK: - INIT
     init?(mtkView: MTKView) {
         // TODO: Figure out how to assert the padding and stride of the shader structs too!
-        assert(MemoryLayout<AtlasInstanceData>.stride == 128);
         assert(MemoryLayout<EntityInstanceData>.stride == 128);
         assert(MemoryLayout<TextVertex>.stride == 32);
         
@@ -155,7 +137,6 @@ class Renderer: NSObject, MTKViewDelegate {
         self.nextStartIndexForTypePtr.initialize(repeating: 0, count: DrawBatchType.count.rawValue)
         self.strideSizesPtr = .allocate(capacity: DrawBatchType.count.rawValue)
         self.strideSizesPtr.initialize(repeating: 0, count: DrawBatchType.count.rawValue)
-        self.strideSizesPtr[DrawBatchType.atlas.rawValue] = MemoryLayout<AtlasInstanceData>.stride
         self.strideSizesPtr[DrawBatchType.entity.rawValue] = MemoryLayout<EntityInstanceData>.stride
         self.strideSizesPtr[DrawBatchType.text.rawValue] = MemoryLayout<TextVertex>.stride
 
@@ -164,10 +145,6 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let cmdQueue = device.makeCommandQueue() else { fatalError("Unable to obtain MTLCommandQueue from MTLDevice") }
         self.commandQueue = cmdQueue
         
-        // Build Atlas Buffers
-        (self.atlasVertexBuffer, self.atlasTriInstanceBuffer) = Self.buildAtlasBuffers(device: device, vertices: atlasSquareVertices, maxCount: atlasMaxInstanceCount)
-        self.atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
-
         // Build Entity Buffers
         (self.entityVertexBuffer, self.entityTriInstanceBuffer) = Self.buildEntityBuffers(device: device, vertices: entityBaseSquareVertices, maxCount: entityMaxInstanceCount)
         self.entityInstancesPtr = UnsafeMutableRawPointer(entityTriInstanceBuffer.contents()).bindMemory(to: EntityInstanceData.self, capacity: entityMaxInstanceCount)
@@ -177,8 +154,7 @@ class Renderer: NSObject, MTKViewDelegate {
         self.textVertexBufferPtr = UnsafeMutableRawPointer(textTriVertexBuffer.contents()).bindMemory(to: TextVertex.self, capacity: textMaxVertexCount)
 
         // Build Pipelines & Descriptors & Misc
-        (self.atlasPipelineState, self.atlasSamplerState) = Self.buildAtlasPipeline(device: device, mtkView: mtkView)
-        self.entityPipelineState = Self.buildEntityPipeline(device: device, mtkView: mtkView)
+        (self.entityPipelineState, self.atlasSamplerState) = Self.buildEntityPipeline(device: device, mtkView: mtkView)
         (self.textPipelineState, self.textSamplerState) = Self.buildTextPipeline(device: device, mtkView: mtkView)
         
         // Load Textures & Fonts
@@ -190,22 +166,6 @@ class Renderer: NSObject, MTKViewDelegate {
 
         
         super.init()
-    }
-    
-    private class func buildAtlasBuffers(device: MTLDevice, vertices atlasSquareVertices: [AtlasVertex], maxCount atlasMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
-        guard let atlasVertexBuffer = device.makeBuffer(
-            bytes: atlasSquareVertices,
-            length: atlasSquareVertices.count * MemoryLayout<AtlasVertex>.stride,
-            options: []) else { fatalError("Unable to create vertex buffer for atlas") }
-        atlasVertexBuffer.label = "Atlas Square Vertex Buffer"
-        
-        let atlasTriInstanceBufferSize = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * maxBuffersInFlight
-        guard let atlasTriInstanceBuffer = device.makeBuffer(
-            length: atlasTriInstanceBufferSize,
-            options: [MTLResourceOptions.storageModeShared]) else { fatalError("Unable to create tri instance buffer for atlas") }
-        atlasTriInstanceBuffer.label = "Atlas Tri Instance Buffer"
-        
-        return (atlasVertexBuffer, atlasTriInstanceBuffer)
     }
     
     private class func buildEntityBuffers(device: MTLDevice, vertices entityBaseSquareVertices: [EntityVertex], maxCount entityMaxInstanceCount: Int) -> (MTLBuffer, MTLBuffer) {
@@ -237,9 +197,6 @@ class Renderer: NSObject, MTKViewDelegate {
     private func updateTriBufferStates() {
         triBufferIndex = (triBufferIndex + 1) % Self.maxBuffersInFlight
         
-        atlasTriInstanceBufferOffset = MemoryLayout<AtlasInstanceData>.stride * atlasMaxInstanceCount * triBufferIndex
-        atlasInstancesPtr = UnsafeMutableRawPointer(atlasTriInstanceBuffer.contents()).advanced(by: atlasTriInstanceBufferOffset).bindMemory(to: AtlasInstanceData.self, capacity: atlasMaxInstanceCount)
-        
         entityTriInstanceBufferOffset = MemoryLayout<EntityInstanceData>.stride * entityMaxInstanceCount * triBufferIndex
         entityInstancesPtr = UnsafeMutableRawPointer(entityTriInstanceBuffer.contents()).advanced(by: entityTriInstanceBufferOffset).bindMemory(to: EntityInstanceData.self, capacity: entityMaxInstanceCount)
         
@@ -247,57 +204,7 @@ class Renderer: NSObject, MTKViewDelegate {
         textVertexBufferPtr = UnsafeMutableRawPointer(textTriVertexBuffer.contents()).advanced(by: textTriInstanceBufferOffset).bindMemory(to: TextVertex.self, capacity: textMaxVertexCount)
     }
     
-    private class func buildAtlasPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
-        guard let library = device.makeDefaultLibrary() else { fatalError("Unable to get default library") }
-        
-        let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_atlas")
-        pipelineDescriptor.fragmentFunction = library.makeFunction(name: "fragment_atlas")
-        
-        // Enable alpha blending
-        let colorAttachment = pipelineDescriptor.colorAttachments[0]!
-        colorAttachment.pixelFormat = mtkView.colorPixelFormat
-        colorAttachment.isBlendingEnabled = true
-        colorAttachment.rgbBlendOperation = .add
-        colorAttachment.alphaBlendOperation = .add
-        colorAttachment.sourceRGBBlendFactor = .sourceAlpha
-        colorAttachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
-        colorAttachment.sourceAlphaBlendFactor = .sourceAlpha
-        colorAttachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
-        
-        // Vertex Descriptor
-        let vertexDescriptor = MTLVertexDescriptor()
-        
-        // Position
-        vertexDescriptor.attributes[AtlasVertAttr.position.rawValue].format = .float2
-        vertexDescriptor.attributes[AtlasVertAttr.position.rawValue].offset = 0
-        vertexDescriptor.attributes[AtlasVertAttr.position.rawValue].bufferIndex = BufferIndex.vertices.rawValue
-        
-        // UV
-        vertexDescriptor.attributes[AtlasVertAttr.UV.rawValue].format = .float2
-        vertexDescriptor.attributes[AtlasVertAttr.UV.rawValue].offset = MemoryLayout<AtlasVertex>.offset(of: \.uv)!
-        vertexDescriptor.attributes[AtlasVertAttr.UV.rawValue].bufferIndex = BufferIndex.vertices.rawValue
-        
-        vertexDescriptor.layouts[0].stride = MemoryLayout<AtlasVertex>.stride
-        vertexDescriptor.layouts[0].stepFunction = .perVertex
-        pipelineDescriptor.vertexDescriptor = vertexDescriptor
-        
-        
-        
-        guard let atlasPipelineState = try? device.makeRenderPipelineState(descriptor: pipelineDescriptor) else {
-            fatalError("Unable to create atlas pipeline state")
-        }
-        
-        let atlasSamplerDescriptor = MTLSamplerDescriptor()
-        atlasSamplerDescriptor.minFilter = .linear
-        atlasSamplerDescriptor.magFilter = .nearest // NOTE: linear can cause some bleeding from neighbouring edges in atlas.
-        atlasSamplerDescriptor.mipFilter = .linear
-        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unable to create atlas sampler state") }
-
-        return (atlasPipelineState, atlasSamplerState)
-    }
-    
-    private class func buildEntityPipeline(device: MTLDevice, mtkView: MTKView) -> MTLRenderPipelineState {
+    private class func buildEntityPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
         guard let library = device.makeDefaultLibrary() else {
             fatalError("Unable to get default library")
         }
@@ -320,7 +227,14 @@ class Renderer: NSObject, MTKViewDelegate {
         guard let entityPipelineState = try? device.makeRenderPipelineState(descriptor: entityPipelineDescriptor) else {
             fatalError("Unable to create entity pipeline state")
         }
-        return entityPipelineState
+        
+        let atlasSamplerDescriptor = MTLSamplerDescriptor()
+        atlasSamplerDescriptor.minFilter = .linear
+        atlasSamplerDescriptor.magFilter = .nearest // NOTE: linear can cause some bleeding from neighbouring edges in atlas.
+        atlasSamplerDescriptor.mipFilter = .linear
+        guard let atlasSamplerState = device.makeSamplerState(descriptor: atlasSamplerDescriptor) else { fatalError("Unable to create atlas sampler state") }
+        
+        return (entityPipelineState, atlasSamplerState)
     }
     
     private class func buildTextPipeline(device: MTLDevice, mtkView: MTKView) -> (MTLRenderPipelineState, MTLSamplerState) {
@@ -459,7 +373,7 @@ class Renderer: NSObject, MTKViewDelegate {
     private func testDrawSprites() {
         // For test: oscillate count between 0 and testMaxCount
         let testMaxCount: Float = 100
-        let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), atlasMaxInstanceCount - 1)
+        let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), 5000 - 1)
         
         var color = SIMD4<Float>.zero
         for i in 0..<testCount {
@@ -635,7 +549,6 @@ class Renderer: NSObject, MTKViewDelegate {
             drawBatchCount = 0
             for index in 0..<DrawBatchType.count.rawValue { self.nextStartIndexForTypePtr[index] = 0 }
             curDrawBatchType = .none
-            atlasInstanceCount = 0
             entityInstanceCount = 0
             textVertexCount = 0
 
@@ -658,20 +571,6 @@ class Renderer: NSObject, MTKViewDelegate {
                         fatalError("Draw Batch with type count, should never be implemented")
                     case .none:
                         fatalError("Draw Batch with type none")
-                    case .atlas:
-                        encoder.setRenderPipelineState(atlasPipelineState)
-                        encoder.setVertexBuffer(atlasVertexBuffer, offset: 0, index: BufferIndex.vertices.rawValue)
-                        
-                        encoder.setVertexBuffer(atlasTriInstanceBuffer,
-                                                offset: atlasTriInstanceBufferOffset + (MemoryLayout<AtlasInstanceData>.stride * batch.startIndex),
-                                                index: BufferIndex.instances.rawValue)
-                        
-                        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
-                        encoder.setFragmentSamplerState(atlasSamplerState, index: 0)
-                        encoder.drawPrimitives(type: .triangleStrip,
-                                               vertexStart: 0,
-                                               vertexCount: atlasSquareVertices.count,
-                                               instanceCount: batch.count)
                         
                     case .entity:
                         encoder.setRenderPipelineState(entityPipelineState)
@@ -682,6 +581,8 @@ class Renderer: NSObject, MTKViewDelegate {
                                                 index: BufferIndex.instances.rawValue)
                         
                         encoder.setVertexBytes(&entityUniforms, length: MemoryLayout<EntityUniforms>.stride, index: BufferIndex.uniforms.rawValue)
+                        encoder.setFragmentTexture(mainAtlasTexture, index: 0)
+                        encoder.setFragmentSamplerState(atlasSamplerState, index: 0)
                         encoder.drawPrimitives(type: .triangleStrip,
                                                vertexStart: 0,
                                                vertexCount: entityBaseSquareVertices.count,
@@ -766,7 +667,6 @@ class Renderer: NSObject, MTKViewDelegate {
         if misalignment != 0 {
             nextStartIndex += alignmentCount - misalignment
         }
-        assert(type == .atlas ? (nextStartIndex + increment) < atlasMaxInstanceCount : true)
         assert(type == .entity ? (nextStartIndex + increment) < entityMaxInstanceCount : true)
         assert(type == .text ? (nextStartIndex + increment) < textMaxVertexCount : true)
         
@@ -784,17 +684,18 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     private func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
         // TODO: Handle if from another atlas
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .atlas, increment: 1)
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         let uvRect = mainAtlasUVRects[spriteName]!
-        atlasInstancesPtr[index] = AtlasInstanceData(
+        entityInstancesPtr[index] = EntityInstanceData(
             transform: projectionMatrix *
                 float4x4(tx: x, ty: y) *
                 float4x4(rotationZ: rotationRadians) *
                 float4x4(scaleX: width, scaleY: height),
             color: color,
-            uvMin: uvRect.minUV,
-            uvMax: uvRect.maxUV)
-        atlasInstanceCount += 1
+            atlasUVs: SIMD4<Float>(uvRect.minUV.x, uvRect.minUV.y, uvRect.maxUV.x, uvRect.maxUV.y), // Pass UVs here
+            sdfParams: .zero,
+            shapeType: ShapeType.atlas.rawValue)
+        entityInstanceCount += 1
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
@@ -806,8 +707,9 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
-            shapeType: ShapeType.circle.rawValue,
-            sdfParams: SIMD4<Float>(radius, 0.5, 0, 0) // hardcode edge softness to 0.5
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(radius, 0.5, 0, 0), // hardcode edge softness to 0.5
+            shapeType: ShapeType.circle.rawValue
         )
         entityInstanceCount += 1
     }
@@ -820,8 +722,9 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
             color: color,
-            shapeType: ShapeType.circleLines.rawValue,
-            sdfParams: SIMD4<Float>(radius, 0.5, thickness / 2.0, 0) // hardcode edge softness to 0.5
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(radius, 0.5, thickness / 2.0, 0), // hardcode edge softness to 0.5
+            shapeType: ShapeType.circleLines.rawValue
         )
         entityInstanceCount += 1
     }
@@ -849,8 +752,9 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstancesPtr[index] = EntityInstanceData(
             transform: transform,
             color: color,
-            shapeType: ShapeType.rect.rawValue,
-            sdfParams: SIMD4<Float>(0, 0, 0, 0)
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(0, 0, 0, 0),
+            shapeType: ShapeType.rect.rawValue
         )
         entityInstanceCount += 1
     }
@@ -863,8 +767,9 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
             color: color,
-            shapeType: ShapeType.rect.rawValue,
-            sdfParams: SIMD4<Float>(0, 0, 0, 0) // not used for rects
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(0, 0, 0, 0), // not used for rects
+            shapeType: ShapeType.rect.rawValue
         )
         entityInstanceCount += 1
     }
@@ -882,8 +787,9 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: color,
-            shapeType: ShapeType.roundedRect.rawValue,
-            sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0)
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0),
+            shapeType: ShapeType.roundedRect.rawValue
         )
         entityInstanceCount += 1
     }
@@ -899,8 +805,9 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
             color: color,
-            shapeType: ShapeType.rectLines.rawValue,
-            sdfParams: SIMD4<Float>(halfWidth, halfHeight, thickness, 0)
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(halfWidth, halfHeight, thickness, 0),
+            shapeType: ShapeType.rectLines.rawValue
         )
         entityInstanceCount += 1
     }
