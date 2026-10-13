@@ -6,7 +6,7 @@
 //
 
 #include <metal_stdlib>
-#include "ShaderTypes.h"
+#include "../ShaderTypes.h"
 using namespace metal;
 
 struct PrimitiveVertex {

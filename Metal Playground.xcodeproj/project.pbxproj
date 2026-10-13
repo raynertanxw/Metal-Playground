@@ -35,13 +35,13 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Assets.xcassets,
+				"Pre Entity Shaders/Shader_Atlas.metal",
+				"Pre Entity Shaders/Shader_Primitive.metal",
 				Resources/main_atlas.png,
 				Resources/main_atlas.txt,
 				Resources/roboto.json,
 				Resources/roboto.png,
-				Shader_Atlas.metal,
 				Shader_Entity.metal,
-				Shader_Primitive.metal,
 				Shader_Text.metal,
 			);
 			target = E606C65A2E54ABA200986809 /* Metal Playground macOS CPP */;
@@ -50,14 +50,14 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Assets.xcassets,
+				"Pre Entity Shaders/Shader_Atlas.metal",
+				"Pre Entity Shaders/Shader_Primitive.metal",
 				Renderer.swift,
 				Resources/main_atlas.png,
 				Resources/main_atlas.txt,
 				Resources/roboto.json,
 				Resources/roboto.png,
-				Shader_Atlas.metal,
 				Shader_Entity.metal,
-				Shader_Primitive.metal,
 				Shader_Text.metal,
 				Utils.swift,
 			);
