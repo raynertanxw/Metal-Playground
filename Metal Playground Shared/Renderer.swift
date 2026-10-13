@@ -43,7 +43,7 @@ struct TextFragmentUniforms {
 // MARK: - Renderer Class
 class Renderer: NSObject, MTKViewDelegate {
     private var projectionMatrix = matrix_identity_float4x4
-    private var screenSize: CGSize = .zero
+    private(set) var screenSize: CGSize = .zero
     
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
@@ -122,7 +122,7 @@ class Renderer: NSObject, MTKViewDelegate {
     
     
     // MARK: - GAME RELATED
-    var time: Float = 0
+    private(set) var time: Float = 0
     
     // MARK: - INIT
     init?(mtkView: MTKView) {
@@ -370,169 +370,7 @@ class Renderer: NSObject, MTKViewDelegate {
         return (glyphs, kerning)
     }
     
-    private func testDrawSprites() {
-        // For test: oscillate count between 0 and testMaxCount
-        let testMaxCount: Float = 100
-        let testCount = min(Int((sin(time * 2.0) + 1.0) / 2.0 * testMaxCount), 5000 - 1)
-        
-        var color = SIMD4<Float>.zero
-        for i in 0..<testCount {
-            let angle = time + Float(i) * (2 * .pi / Float(testCount))
-            let radius: Float = Float(screenSize.width) / 3.0
-            color.x = 0.5 + 0.5 * sin(angle)
-            color.y = 0.5 + 0.5 * cos(angle)
-            color.z = 0.5 + 0.5 * sin(angle * 0.5)
-            color.w = 1.0
-            
-            drawSprite(
-                spriteName: "Circle_White",
-                x: cos(angle) * radius,
-                y: sin(angle) * radius,
-                width: 100.0 + 100.0 * sin(angle),
-                height: 100.0 + 100.0 * sin(angle),
-                color: color,
-                rotationRadians: angle * 2)
-        }
-        
-        { // Test anything static here, adds to last instance count
-            let spriteName = "player_1"
-            drawSprite(spriteName: spriteName, x: 100, y: 100, width: 256, height: 256, color: SIMD4<Float>.one)
-        }()
-    }
     
-    private func testDrawEntities() {
-        let circleCount = 30000
-        var rng = FastRandom(seed: UInt64(time * 1000000))
-        var color = SIMD4<Float>.zero
-        
-//        for _ in 0..<circleCount {
-//            let x = rng.nextFloat(min: Float(-screenSize.width), max: Float(screenSize.width))
-//            let y = rng.nextFloat(min: Float(-screenSize.height), max: Float(screenSize.height))
-//            let radius = rng.nextFloat(min: 5, max: 25)
-//            
-//            color.x = rng.nextUnitFloat()
-//            color.y = rng.nextUnitFloat()
-//            color.z = rng.nextUnitFloat()
-//            color.w = 1.0
-//            
-//            drawEntityCircle(x: x, y: y, radius: radius, color: color)
-//        }
-        
-        drawEntityCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
-        drawEntityCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
-        drawEntityCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
-        drawEntityCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
-        drawEntityCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
-        drawEntityCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-        drawEntityLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-        drawEntityRectLines(x: 0, y: 0, width: 800, height: 600, thickness: 48, r: 0, g: 255, b: 255, a: 255)
-        drawEntityRect(x: 0, y: 0, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
-        drawEntityRect(x: -800, y: -600, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
-        drawEntityRect(x: 0, y: 0, width: 24, height: 600, r: 255, g: 0, b: 0, a: 64)
-        drawEntityRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
-        drawEntityRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
-        drawEntityRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-        drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-        drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
-        drawEntityCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
-        drawEntityRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
-        drawEntityCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
-        drawEntityCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
-        drawEntityRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
-    }
-    
-    private func testDrawTextWithBounds() {
-        // Testing for text bounds checking
-        let fontSize: Float = 96
-        let now = Date().timeIntervalSince1970
-        let text = "Hello, SDF\nWorld!\n\n\(Int(now))"
-        let textBounds = measureTextBounds(for: text, withSize: fontSize)
-        drawEntityCircle(x: -Float(textBounds.width / 2.0),
-                            y: Float(textBounds.height / 2.0),
-                            radius: 16, color: SIMD4<Float>.one)
-        drawEntityRect(
-            x: -Float(textBounds.width / 2.0),
-            y: -(textBounds.height / 2.0),
-            width: textBounds.width,
-            height: textBounds.height,
-            color: SIMD4<Float>(0,1.0,1.0,0.25))
-        
-        let color: SIMD4<Float> = [0.9, 0.9, 0.1, 1.0] // Yellow
-        drawText(
-            text: text,
-            posX: -Float(textBounds.width / 2.0),
-            posY: Float(textBounds.height / 2.0),
-            fontSize: fontSize,
-            color: color,
-        )
-        
-        
-        drawText(text: "HELLO       AGAIN!!!",
-                 posX: Float(20 - screenSize.width / 2.0),
-                 posY: Float(-20 + screenSize.height / 2.0),
-                 fontSize: 48,
-                 color: [0.3, 0.2, 0.7, 1.0])
-    }
-    
-    private func testUpdateGameState() {
-        testDrawEntities()
-//        testDrawSprites()
-//        testDrawTextWithBounds()
-        
-//        let wave1 = sin(time * 1.5) * 300
-//        let wave2 = cos(time * 0.8) * 200
-//        let wave3 = sin(time * 3.2) * 100
-//        let circleX = sin(time * 2.0) * 256
-//        let circleY = cos(time * 1.0) * 128
-        
-//        drawSprite(spriteName: "player_2",
-//                   x: wave1,
-//                   y: wave2,
-//                   width: 256 + wave3,
-//                   height: 256 + wave3,
-//                   color: SIMD4<Float>.one)
-//        
-//        drawEntityCircle(x: circleX,
-//                            y: circleY,
-//                            radius: 128 + sin(time * 4.0) * 64,
-//                            color: [1, 0.3, 0.5, 1])
-//        
-//        drawSprite(spriteName: "player_2",
-//                   x: -circleX,
-//                   y: -circleY,
-//                   width: 128,
-//                   height: 128,
-//                   color: SIMD4<Float>(1, 1, 1, 1))
-//        
-//        let textYOffset = sin(time * 1.2) * 40
-//        drawText(text: "Dynamic Text\nis Alive!",
-//                 posX: -200,
-//                 posY: 300 + textYOffset,
-//                 fontSize: 64 + sin(time * 2.5) * 8,
-//                 color: SIMD4<Float>(1, 0.8, 0.2, 1))
-//        
-//                
-//        drawText(text: "Another Test", posX: -150, posY: -50, fontSize: 48, color: [1,0,1,1])
-//
-//        let scrollOffset = sin(time * 0.5) * 150
-//        
-//        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
-//                 posX: -600 + scrollOffset,
-//                 posY: 600,
-//                 fontSize: 96,
-//                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
-//        
-//        drawEntityCircle(x: sin(time * 0.7) * 600,
-//                            y: cos(time * 0.9) * 500,
-//                            radius: 64,
-//                            color: [0, 0.5, 0.5, 1])
-//        
-//        drawText(text: "This is a much\nLonger test of a block\nOf text here and there\nAnother line here\nAnother line there\n  Here's one with 2 spaces before",
-//                 posX: -900 - scrollOffset,
-//                 posY: 100,
-//                 fontSize: 96,
-//                 color: SIMD4<Float>(0.1, 1.0, 0.5, 1.0))
-    }
     
     // MARK: - DRAW FUNCTION
     func draw(in view: MTKView) {
@@ -554,7 +392,7 @@ class Renderer: NSObject, MTKViewDelegate {
 
             
             time += 1.0 / Float(view.preferredFramesPerSecond)
-            self.testUpdateGameState()
+            RendererTester.testUpdateGameState(renderer: self)
             
             /// Delay getting the currentRenderPassDescriptor until we absolutely need it to avoid
             ///   holding onto the drawable and blocking the display pipeline any longer than necessary
@@ -679,10 +517,10 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - ATLAS DRAWING FUNCTIONS
-    private func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, rotationRadians: Float = 0) {
+    func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8, rotationRadians: Float = 0) {
         drawSprite(spriteName: spriteName, x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a), rotationRadians: rotationRadians)
     }
-    private func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
+    func drawSprite(spriteName: String, x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
         // TODO: Handle if from another atlas
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         let uvRect = mainAtlasUVRects[spriteName]!
@@ -699,10 +537,10 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
-    private func drawEntityCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    func drawEntityCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawEntityCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
+    func drawEntityCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
@@ -714,10 +552,10 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstanceCount += 1
     }
     
-    private func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
+    func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
@@ -729,10 +567,10 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstanceCount += 1
     }
     
-    private func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityLine(x1: x1, y1: y1, x2: x2, y2: y2, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: SIMD4<Float>) {
+    func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: SIMD4<Float>) {
         let dx = x2 - x1
         let dy = y2 - y1
         let length = sqrt(dx * dx + dy * dy)
@@ -759,10 +597,10 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstanceCount += 1
     }
     
-    private func drawEntityRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    func drawEntityRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityRect(x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawEntityRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
+    func drawEntityRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         entityInstancesPtr[index] = EntityInstanceData(
             transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
@@ -774,12 +612,12 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstanceCount += 1
     }
     
-    private func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
+    func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
                                   r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityRoundedRect(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius,
                                  color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
+    func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
@@ -794,10 +632,10 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstanceCount += 1
     }
     
-    private func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+    func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityRectLines(x: x, y: y, width: width, height: height, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    private func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
+    func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
         let halfWidth = width / 2.0
         let halfHeight = height / 2.0
         
@@ -812,7 +650,7 @@ class Renderer: NSObject, MTKViewDelegate {
         entityInstanceCount += 1
     }
     // MARK: - Text Drawing Functions
-    private func drawText(text: String,
+    func drawText(text: String,
                   posX: Float, posY: Float,
                   fontSize: Float,
                   color: SIMD4<Float>) {
