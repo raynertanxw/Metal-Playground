@@ -525,8 +525,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         let uvRect = mainAtlasUVRects[spriteName]!
         entityInstancesPtr[index] = EntityInstanceData(
-            transform: projectionMatrix *
-                float4x4(tx: x, ty: y) *
+            transform: float4x4(tx: x, ty: y) *
                 float4x4(rotationZ: rotationRadians) *
                 float4x4(scaleX: width, scaleY: height),
             color: color,
