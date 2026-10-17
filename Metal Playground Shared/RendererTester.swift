@@ -9,10 +9,14 @@ import MetalKit
 
 struct RendererTester {
     public static func testUpdateGameState(renderer: Renderer) {
-        testDrawEntities(renderer: renderer)
+        testDrawEntitiesStressTest(renderer: renderer)
+//        testDrawEntitiesShapes(renderer: renderer)
         testDrawSprites(renderer: renderer)
         testDrawTextWithBounds(renderer: renderer)
-
+        testDrawAnimations(renderer: renderer)
+    }
+    
+    private static func testDrawAnimations(renderer: Renderer) {
         let wave1 = sin(renderer.time * 1.5) * 300
         let wave2 = cos(renderer.time * 0.8) * 200
         let wave3 = sin(renderer.time * 3.2) * 100
@@ -104,7 +108,7 @@ struct RendererTester {
         }()
     }
     
-    private static func testDrawEntities(renderer: Renderer) {
+    private static func testDrawEntitiesStressTest(renderer: Renderer) {
         let circleCount = 30000
         var rng = FastRandom(seed: UInt64(renderer.time * 1000000))
         var color = SIMD4<Float>.zero
@@ -121,28 +125,30 @@ struct RendererTester {
             
             renderer.drawEntityCircle(x: x, y: y, radius: radius, color: color)
         }
-        
+    }
+    
+    private static func testDrawEntitiesShapes(renderer: Renderer) {
 //        renderer.drawEntityCircle(x: 0, y: 0, radius: 800.0, r: 255, g: 255, b: 255, a: 64)
 //        renderer.drawEntityCircle(x: 0, y: 0, radius: 512.0, r: 0, g: 255, b: 255, a: 64)
 //        renderer.drawEntityCircle(x: 0, y: 0, radius: 256.0, r: 255, g: 0, b: 255, a: 64)
 //        renderer.drawEntityCircle(x: 256, y: 256, radius: 128.0, r: 255, g: 0, b: 0, a: 64)
 //        renderer.drawEntityCircle(x: 0, y: 0, radius: 128.0, r: 0, g: 255, b: 0, a: 64)
-//        renderer.drawEntityCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 0, b: 255, a: 64)
-//        renderer.drawEntityLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
-//        renderer.drawEntityRectLines(x: 0, y: 0, width: 800, height: 600, thickness: 48, r: 0, g: 255, b: 255, a: 255)
-//        renderer.drawEntityRect(x: 0, y: 0, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
+        renderer.drawEntityCircle(x: -256, y: -256, radius: 128.0, r: 0, g: 255, b: 255, a: 64)
+        renderer.drawEntityLine(x1: -800, y1: -600, x2: 800, y2: 600, thickness: 10, r: 200, g: 100, b: 0, a: 128)
+        renderer.drawEntityRectLines(x: 0, y: 0, width: 800, height: 600, thickness: 48, r: 0, g: 255, b: 255, a: 255)
+        renderer.drawEntityRect(x: 0, y: 0, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
 //        renderer.drawEntityRect(x: -800, y: -600, width: 800, height: 600, r: 255, g: 0, b: 0, a: 64)
 //        renderer.drawEntityRect(x: 0, y: 0, width: 24, height: 600, r: 255, g: 0, b: 0, a: 64)
 //        renderer.drawEntityRect(x: 0, y: 0, width: 128, height: 196, r: 0, g: 255, b: 0, a: 128)
 //        renderer.drawEntityRect(x: -800, y: -600, width: 800, height: 600, r: 128, g: 255, b: 0, a: 128)
 //        renderer.drawEntityRect(x: -800, y: -600, width: 1600, height: 1200, r: 0, g: 255, b: 255, a: 32)
-//        renderer.drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
-//        renderer.drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
+        renderer.drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 600, cornerRadius: 100, r: 0, g: 0, b: 255, a: 255)
+        renderer.drawEntityRoundedRect(x: 0, y: 0, width: 800, height: 100, cornerRadius: 100, r: 0, g: 255, b: 255, a: 255)
 //        renderer.drawEntityCircle(x: 100, y: 100, radius: 100, r: 255, g: 0, b: 0, a: 128)
 //        renderer.drawEntityRect(x: -600, y: -600, width: 1200, height: 1200, r: 255, g: 0, b: 255, a: 255)
 //        renderer.drawEntityCircle(x: 0, y: 0, radius: 600, r: 255, g: 255, b: 255, a: 255)
-//        renderer.drawEntityCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
-//        renderer.drawEntityRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
+        renderer.drawEntityCircleLines(x: 0, y: 0, radius: 600, thickness: 48, r: 255, g: 0, b: 255, a: 128)
+        renderer.drawEntityRect(x: -600, y:-600, width: 48, height: 1200, r: 0, g: 255, b: 0, a: 128)
     }
     
     private static func testDrawTextWithBounds(renderer: Renderer) {
