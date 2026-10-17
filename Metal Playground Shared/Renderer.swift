@@ -537,9 +537,7 @@ class Renderer: NSObject, MTKViewDelegate {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         let uvRect = mainAtlasUVRects[spriteName]!
         entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x, ty: y) *
-                float4x4(rotationZ: rotationRadians) *
-                float4x4(scaleX: width, scaleY: height),
+            transform: float4x4(tx: x, ty: y, scaleX: width, scaleY: height, rotationZ: rotationRadians),
             color: color,
             atlasUVs: SIMD4<Float>(uvRect.minUV.x, uvRect.minUV.y, uvRect.maxUV.x, uvRect.maxUV.y), // Pass UVs here
             sdfParams: .zero,
@@ -551,9 +549,7 @@ class Renderer: NSObject, MTKViewDelegate {
     func drawMorph(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x, ty: y) *
-            float4x4(rotationZ: rotationRadians) *
-            float4x4(scaleX: width, scaleY: height),
+            transform: float4x4(tx: x, ty: y, scaleX: width, scaleY: height, rotationZ: rotationRadians),
             color: color,
             atlasUVs: .zero,
             sdfParams: SIMD4<Float>(width / 2.0, height / 2.0, cornerRadius, 0),
@@ -566,9 +562,7 @@ class Renderer: NSObject, MTKViewDelegate {
     func drawMorphLines(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, thickness: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
         let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
         entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x, ty: y) *
-            float4x4(rotationZ: rotationRadians) *
-            float4x4(scaleX: width, scaleY: height),
+            transform: float4x4(tx: x, ty: y, scaleX: width, scaleY: height, rotationZ: rotationRadians),
             color: color,
             atlasUVs: .zero,
             sdfParams: SIMD4<Float>(width / 2.0, height / 2.0, cornerRadius, thickness),
@@ -801,6 +795,17 @@ extension float4x4 {
         columns.0.y = sin(angle)
         columns.1.x = -sin(angle)
         columns.1.y = cos(angle)
+    }
+    
+    // NOTE: Use this if possible, most efficient!
+    init(tx: Float, ty: Float, scaleX: Float, scaleY: Float, rotationZ angle: Float) {
+        let c = cos(angle)
+        let s = sin(angle)
+        
+        self = matrix_identity_float4x4
+        self.columns.0 = SIMD4<Float>(c * scaleX, s * scaleX, 0, 0)
+        self.columns.1 = SIMD4<Float>(-s * scaleY, c * scaleY, 0, 0)
+        self.columns.3 = SIMD4<Float>(tx, ty, 0, 1)
     }
     
     static func pixelSpaceProjection(screenWidth: Float, screenHeight: Float) -> float4x4 {

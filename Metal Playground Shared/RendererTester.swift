@@ -109,7 +109,7 @@ struct RendererTester {
     }
     
     private static func testDrawEntitiesStressTest(renderer: Renderer) {
-        let circleCount = 30000
+        let circleCount = 40000
         var rng = FastRandom(seed: UInt64(renderer.time * 1000000))
         var color = SIMD4<Float>.zero
         
