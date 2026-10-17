@@ -1,4 +1,4 @@
-7
+7 2048
 Circle_Blue 256 0 64 64
 player_1 0 0 128 128
 Circle_SkyBlue 320 0 64 64

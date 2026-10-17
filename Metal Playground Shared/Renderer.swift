@@ -159,7 +159,7 @@ class Renderer: NSObject, MTKViewDelegate {
         
         // Load Textures & Fonts
         self.mainAtlasTexture = Renderer.loadTexture(device: device, name: "main_atlas")
-        self.mainAtlasUVRects = Renderer.loadAtlasUV(named: "main_atlas", textureWidth: 2048, textureHeight: 2048)
+        self.mainAtlasUVRects = Renderer.loadAtlasUV(named: "main_atlas")
         let fontName = "roboto"
         (self.fontAtlas, self.fontTexture) = Self.loadFontAtlas(device: device, fontName: fontName)
         (self.fontGlyphs, self.fontKerning) = Self.preprocessFontData(fontAtlas: fontAtlas)
@@ -302,13 +302,25 @@ class Renderer: NSObject, MTKViewDelegate {
         }
     }
     
-    private class func loadAtlasUV(named filename: String, textureWidth: Float, textureHeight: Float) -> [String: AtlasUVRect] {
+    private class func loadAtlasUV(named filename: String) -> [String: AtlasUVRect] {
         guard let url = Bundle.main.url(forResource: filename, withExtension: "txt") else {
             fatalError("Atlas file not found.")
         }
         
         let contents = try! String(contentsOf: url, encoding: .utf8)
-        let lines = contents.split(separator: "\n").dropFirst() // skip the count
+        let allLines = contents.split(separator: "\n")
+        let textureSize: Float
+        
+        if let firstLine = allLines.first {
+            let headerParts = firstLine.split(separator: " ")
+            assert(headerParts.count == 2, "The atlas metadata file format is incorrect. Expected only 2 fields on first line.")
+            let spriteCount = Int(headerParts[0]) ?? 0
+            assert(allLines.count == spriteCount + 1, "The number of sprite entries in the atlas metadata file does not match the number of lines in the atlas metadata.")
+            textureSize = Float(headerParts[1]) ?? 0.0
+        } else { textureSize = 0.0 }
+
+        // Drop the first line so the rest of the code works as usual
+        let lines = allLines.dropFirst()
         
         var atlasUV = [String: AtlasUVRect]()
         
@@ -322,8 +334,8 @@ class Renderer: NSObject, MTKViewDelegate {
             let w = Float(parts[3])!
             let h = Float(parts[4])!
             
-            let minUV = SIMD2<Float>(x / textureWidth, y / textureHeight)
-            let maxUV = SIMD2<Float>((x + w) / textureWidth, (y + h) / textureHeight)
+            let minUV = SIMD2<Float>(x / textureSize, y / textureSize)
+            let maxUV = SIMD2<Float>((x + w) / textureSize, (y + h) / textureSize)
             
             atlasUV[name] = AtlasUVRect(minUV: minUV, maxUV: maxUV)
         }

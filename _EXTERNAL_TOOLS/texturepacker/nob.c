@@ -274,7 +274,7 @@ int load_sprites_from_directory(
   return file_count;
 }
 
-void save_atlas_metadata(const char* filename, NOB_SpriteMetadata* sprites, int count) {
+void save_atlas_metadata(const char* filename, NOB_SpriteMetadata* sprites, int count, int ATLAS_SIZE) {
   char path[MAX_PATH_LENGTH];
   snprintf(path, sizeof(path), "%s%s", RESOURCE_FOLDER, filename);
 
@@ -284,7 +284,7 @@ void save_atlas_metadata(const char* filename, NOB_SpriteMetadata* sprites, int 
     return;
   }
 
-  fprintf(file, "%d\n", count); // Write the count of sprites
+  fprintf(file, "%d %d\n", count, ATLAS_SIZE); // Write the count of sprites
   for (int i = 0; i < count; i++) {
     fprintf(file, "%s %d %d %d %d\n",
         GetFileNameWithoutExt(sprites[i].filename), // Stripped filename
@@ -303,10 +303,11 @@ void build_texture_atlas(
     const char* atlas_metadata_filename,
     const char* atlas_src_folder,
     const int   MAX_SPRITES,
-    const int   ATLAS_SIZE) {
+    const int   ATLAS_SIZE,
+    const bool  FORCED) {
 
-  bool shouldBuild = check_should_build_atlas_and_compute_hashes(
-      atlas_img_filename, atlas_metadata_filename, atlas_src_folder, ATLAS_SIZE);
+  bool shouldBuild = FORCED || check_should_build_atlas_and_compute_hashes(
+                                   atlas_img_filename, atlas_metadata_filename, atlas_src_folder, ATLAS_SIZE);
   if (!shouldBuild) {
     nob_log(NOB_INFO, "No changes detected for atlas path: %s, skipping build", atlas_src_folder);
     return;
@@ -363,7 +364,7 @@ void build_texture_atlas(
     nob_log(NOB_INFO, "Successfully saved atlas image: %s", atlasPath);
 
     // Save metadata
-    save_atlas_metadata(atlas_metadata_filename, sprites, spriteCount);
+    save_atlas_metadata(atlas_metadata_filename, sprites, spriteCount, ATLAS_SIZE);
   } else {
     nob_log(NOB_ERROR, "Failed to pack textures!");
     exit(1);
@@ -371,13 +372,14 @@ void build_texture_atlas(
 }
 
 // ::COMMANDS
-void execute_cmd_sprite_packer() {
+void execute_cmd_sprite_packer(bool forced) {
   build_texture_atlas(
       MAINE_ATLAS_IMAGE_FILENAME,
       MAIN_ATLAS_META_FILENAME,
       "mainAtlas",
       MAIN_ATLAS_MAX_SPRITES,
-      MAIN_ATLAS_SIZE);
+      MAIN_ATLAS_SIZE,
+      forced);
 
   // TEMPLATE: Build additional sprite atlas as defined in src/build_defines
 
@@ -386,6 +388,7 @@ void execute_cmd_sprite_packer() {
 
 typedef enum {
   NOB_SPRITE_PACK_ONLY,
+  NOB_SPRITE_PACK_FORCED,
 } BUILD_MODE;
 int main(int argc, char** argv) {
   NOB_GO_REBUILD_URSELF(argc, argv);
@@ -393,8 +396,8 @@ int main(int argc, char** argv) {
 
   if (argc > 1) {
     const char* build_param = argv[1];
-    if (strcmp(build_param, "spritepack") == 0)
-      mode = NOB_SPRITE_PACK_ONLY;
+    if (strcmp(build_param, "force") == 0)
+      mode = NOB_SPRITE_PACK_FORCED;
     else {
       nob_log(NOB_ERROR, "Unrecognised build param: %s", build_param);
       exit(1);
@@ -403,7 +406,11 @@ int main(int argc, char** argv) {
 
   switch (mode) {
     case NOB_SPRITE_PACK_ONLY: {
-      execute_cmd_sprite_packer();
+      execute_cmd_sprite_packer(false);
+      break;
+    }
+    case NOB_SPRITE_PACK_FORCED: {
+      execute_cmd_sprite_packer(true);
       break;
     }
     default: {
