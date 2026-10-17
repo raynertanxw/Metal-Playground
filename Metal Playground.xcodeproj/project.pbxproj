@@ -37,7 +37,6 @@
 				Assets.xcassets,
 				"Pre Entity Shaders/Shader_Atlas.metal",
 				"Pre Entity Shaders/Shader_Primitive.metal",
-				RendererTester.swift,
 				Resources/main_atlas.png,
 				Resources/main_atlas.txt,
 				Resources/roboto.json,

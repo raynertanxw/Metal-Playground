@@ -465,7 +465,7 @@ void Renderer::loadTextInfoAndTexture()
     }
 }
 
-void Renderer::testDrawPrimitives() {
+void Renderer::testDrawEntities() {
     const int circleCount = 100000;
     RNG rng = {U32(time * 1000000)};
     simd_float4 color = {};
@@ -480,40 +480,39 @@ void Renderer::testDrawPrimitives() {
         color.z = RandomF01(&rng);
         color.w = 1.0;
         
-        drawPrimitiveCircle(x, y, radius, color);
+        drawEntityCircle(x, y, radius, color);
     }
     
-//    drawPrimitiveCircle(0, 0, 50, 0, 255, 255, 255);
-//    drawPrimitiveCircle(0, 0, 800.0, 255, 255, 255, 64);
-//    drawPrimitiveCircle(0, 0, 512.0, 0, 255, 255, 64);
-//    drawPrimitiveCircle(0, 0, 256.0, 255, 0, 255, 64);
-//    drawPrimitiveCircle(256, 256, 128.0, 255, 0, 0, 64);
-//    drawPrimitiveCircle(0, 0, 128.0, 0, 255, 0, 64);
-//    drawPrimitiveCircle(-256, -256, 128.0, 0, 0, 255, 64);
-//    drawPrimitiveLine(-800, -600, 800, 600, 10, 200, 100, 0, 128);
-//    drawPrimitiveRectLines(0, 0, 800, 600, 48, 0, 255, 255, 255);
-//    drawPrimitiveRect(0, 0, 800, 600, 255, 0, 0, 64);
-//    drawPrimitiveRect(-800, -600, 800, 600, 255, 0, 0, 64);
-//    drawPrimitiveRect(0, 0, 24, 600, 255, 0, 0, 64);
-//    drawPrimitiveRect(0, 0, 128, 196, 0, 255, 0, 128);
-//    drawPrimitiveRect(-800, -600, 800, 600, 128, 255, 0, 128);
-//    drawPrimitiveRect(-800, -600, 1600, 1200, 0, 255, 255, 32);
-//    drawPrimitiveRoundedRect(0, 0, 800, 600, 100, 0, 0, 255, 255);
-//    drawPrimitiveRoundedRect(0, 0, 800, 100, 100, 0, 255, 255, 255);
-//    drawPrimitiveCircle(100, 100, 100, 255, 0, 0, 128);
-//    drawPrimitiveRect(-600, -600, 1200, 1200, 255, 0, 255, 255);
-//    drawPrimitiveCircle(0, 0, 600, 255, 255, 255, 255);
-//    drawPrimitiveCircleLines(0, 0, 600, 48, 255, 0, 255, 128);
-//    drawPrimitiveRect(-600, -600, 48, 1200, 0, 255, 0, 128);
+//    drawEntityCircle(0, 0, 50, 0, 255, 255, 255);
+//    drawEntityCircle(0, 0, 800.0, 255, 255, 255, 64);
+//    drawEntityCircle(0, 0, 512.0, 0, 255, 255, 64);
+//    drawEntityCircle(0, 0, 256.0, 255, 0, 255, 64);
+//    drawEntityCircle(256, 256, 128.0, 255, 0, 0, 64);
+//    drawEntityCircle(0, 0, 128.0, 0, 255, 0, 64);
+//    drawEntityCircle(-256, -256, 128.0, 0, 0, 255, 64);
+//    drawEntityLine(-800, -600, 800, 600, 10, 200, 100, 0, 128);
+//    drawEntityRectLines(0, 0, 800, 600, 48, 0, 255, 255, 255);
+//    drawEntityRect(0, 0, 800, 600, 255, 0, 0, 64);
+//    drawEntityRect(-800, -600, 800, 600, 255, 0, 0, 64);
+//    drawEntityRect(0, 0, 24, 600, 255, 0, 0, 64);
+//    drawEntityRect(0, 0, 128, 196, 0, 255, 0, 128);
+//    drawEntityRect(-800, -600, 800, 600, 128, 255, 0, 128);
+//    drawEntityRect(-800, -600, 1600, 1200, 0, 255, 255, 32);
+//    drawEntityRoundedRect(0, 0, 800, 600, 100, 0, 0, 255, 255);
+//    drawEntityRoundedRect(0, 0, 800, 100, 100, 0, 255, 255, 255);
+//    drawEntityCircle(100, 100, 100, 255, 0, 0, 128);
+//    drawEntityRect(-600, -600, 1200, 1200, 255, 0, 255, 255);
+//    drawEntityCircle(0, 0, 600, 255, 255, 255, 255);
+//    drawEntityCircleLines(0, 0, 600, 48, 255, 0, 255, 128);
+//    drawEntityRect(-600, -600, 48, 1200, 0, 255, 0, 128);
 
 }
 
-void Renderer::testDrawAtlasSprites()
+void Renderer::testDrawSprites()
 {
     const int testMaxCount = 100;
     const int testCount = MIN
-    ((int)((sin(time * 2.0f) + 1.0f) / 2.0f * testMaxCount),
-     atlasMaxInstanceCount - 1);
+    ((int)((sin(time * 2.0f) + 1.0f) / 2.0f * testMaxCount), 5000);
     
     simd_float4 color;
     for (int i = 0; i < testCount; ++i) {
@@ -553,13 +552,13 @@ void Renderer::testDrawTextWithBounds()
     
     // Draw a circle at the top-left of the text bounds
     simd::float4 white = {1.0f, 1.0f, 1.0f, 1.0f};
-    drawPrimitiveCircle(-textWidth / 2.0f,
+    drawEntityCircle(-textWidth / 2.0f,
                         textHeight / 2.0f,
                         16.0f,
                         white);
         
     // Draw a rectangle behind the text to visualize bounds
-    drawPrimitiveRect(-textWidth / 2.0f,
+    drawEntityRect(-textWidth / 2.0f,
                       -textHeight / 2.0f,
                       textWidth,
                       textHeight,
@@ -607,7 +606,7 @@ void Renderer::testDrawInterleavedTypes()
     );
 
     // Draw moving circle
-    drawPrimitiveCircle(
+    drawEntityCircle(
         circleX,
         circleY,
         128.0f + std::sin(time * 4.0f) * 64.0f,
@@ -659,7 +658,7 @@ void Renderer::testDrawInterleavedTypes()
     );
 
     // Another moving circle
-    drawPrimitiveCircle(
+    drawEntityCircle(
         std::sin(time * 0.7f) * 600.0f,
         std::cos(time * 0.9f) * 500.0f,
         64.0f,
@@ -691,13 +690,13 @@ void Renderer::draw( MTK::View* pView )
         drawBatchCount = 0;
         for (int iBatchType = 0; iBatchType < drawbatchtype_count; ++iBatchType) { nextStartIndexForTypePtr[iBatchType] = 0; }
         curDrawBatchType = drawbatchtype_none;
-        atlasInstanceCount = 0;
-        primitiveInstanceCount = 0;
+        entityInstanceCount = 0;
         textVertexCount = 0;
         
         time += 1.0 / pView->preferredFramesPerSecond();
-        testDrawPrimitives();
-        testDrawAtlasSprites();
+        
+        testDrawEntities();
+        testDrawSprites();
         testDrawTextWithBounds();
         testDrawInterleavedTypes();
 
@@ -719,24 +718,16 @@ void Renderer::draw( MTK::View* pView )
                         __builtin_printf("Draw Batch with type none");
                         assert(false);
                     } break;
-                    case drawbatchtype_atlas: {
-                        encoder->setRenderPipelineState(atlasPipelineState);
-                        encoder->setVertexBuffer(atlasVertexBuffer, 0, BufferIndexVertices);
+                    case drawbatchtype_entity: {
+                        encoder->setRenderPipelineState(entityPipelineState);
+                        encoder->setVertexBuffer(entityVertexBuffer, 0, BufferIndexVertices);
                         
-                        encoder->setVertexBuffer(atlasTriInstanceBuffer, atlasTriInstanceBufferOffset + (sizeof(AtlasInstanceData) * batch.startIndex), BufferIndexInstances);
+                        encoder->setVertexBuffer(entityTriInstanceBuffer, entityTriInstanceBufferOffset + (sizeof(EntityInstanceData) * batch.startIndex), BufferIndexInstances);
                         
+                        encoder->setVertexBytes(&entityUniforms, sizeof(entityUniforms), BufferIndexUniforms);
                         encoder->setFragmentTexture(mainAtlasTexture, 0);
                         encoder->setFragmentSamplerState(atlasSamplerState, 0);
-                        encoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, sizeof(atlasSquareVertices) / sizeof(atlasSquareVertices[0]), batch.count);
-                    } break;
-                    case drawbatchtype_primitive: {
-                        encoder->setRenderPipelineState(primitivePipelineState);
-                        encoder->setVertexBuffer(primitiveVertexBuffer, 0, BufferIndexVertices);
-                        
-                        encoder->setVertexBuffer(primitiveTriInstanceBuffer, primitiveTriInstanceBufferOffset + (sizeof(PrimitiveInstanceData) * batch.startIndex), BufferIndexInstances);
-                        
-                        encoder->setVertexBytes(&primitiveUniforms, sizeof(primitiveUniforms), BufferIndexUniforms);
-                        encoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, sizeof(primitiveSquareVertices) / sizeof(primitiveSquareVertices[0]), batch.count);
+                        encoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, batch.count);
                     } break;
                     case drawbatchtype_text: {
                         encoder->setRenderPipelineState(textPipelineState);
@@ -760,7 +751,6 @@ void Renderer::draw( MTK::View* pView )
             encoder->endEncoding();
             if (pView->currentDrawable()) {
                 cmdBuffer->presentDrawable(pView->currentDrawable());
-                
                 // TODO: The Render Frame Count debugging stuff
             }
         }
@@ -776,7 +766,7 @@ void Renderer::drawableSizeWillChange( MTK::View* pView, CGSize size )
     __builtin_printf("drawableSizeWillChange called, (%0.f, %0.f)\n", size.width, size.height);
     screenSize = size;
     projectionMatrix = pixelSpaceProjection((float)size.width, (float)size.height);
-    primitiveUniforms = (PrimitiveUniforms){projectionMatrix};
+    entityUniforms = (EntityUniforms){projectionMatrix};
 }
 
 inline simd_float4 Renderer::colorFromBytes(UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
@@ -810,9 +800,8 @@ inline int Renderer::addToDrawBatchAndGetAdjustedIndex(DrawBatchType type, int i
         nextStartIndex += alignmentCount - misalignment;
     }
     
-    assert(type == drawbatchtype_atlas ? (nextStartIndex + increment) < atlasMaxInstanceCount : true);
-    assert(type == drawbatchtype_primitive ? (nextStartIndex + increment) < primitiveMaxInstanceCount : true);
-    //    assert(type == drawbatchtype_text ? (nextStartIndex + increment) < textMaxVertexCount : true);
+    assert(type == drawbatchtype_entity ? (nextStartIndex + increment) < entityMaxInstanceCount : true);
+    assert(type == drawbatchtype_text ? (nextStartIndex + increment) < textMaxVertexCount : true);
     
     curDrawBatchType = type;
     drawBatchesArr[batchIndex] = (DrawBatch){
@@ -826,145 +815,110 @@ inline int Renderer::addToDrawBatchAndGetAdjustedIndex(DrawBatchType type, int i
     return nextStartIndex;
 }
 
-// MARK: - Atlas Drawing Functions
+// MARK: - ATLAS DRAWING FUNCTIONS
 void Renderer::drawSprite(const char* spriteName, float x, float y, float width, float height, UInt8 r, UInt8 g, UInt8 b, UInt8 a, float rotationRadians)
 {
     drawSprite(spriteName, x, y, width, height, colorFromBytes(r, g, b, a), rotationRadians);
 }
 void Renderer::drawSprite(const char* spriteName, float x, float y, float width, float height, simd_float4 color, float rotationRadians)
 {
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_atlas, 1);
-    atlasInstancesPtr[index] = (AtlasInstanceData){
-        .transform =
-        simd_mul(projectionMatrix,
-                 simd_mul(makeTranslate(x, y),
-                          simd_mul(makeRotationZ(rotationRadians),
-                                   makeScale(width, height)))),
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_entity, 1);
+    AtlasUVRect uvRect = mainAtlasUVRects[spriteName];
+    entityInstancesPtr[index] = (EntityInstanceData){
+        // Double-Projection Matrix Bug Fixed Here!
+        .transform = simd_mul(makeTranslate(x, y),
+                              simd_mul(makeRotationZ(rotationRadians),
+                                       makeScale(width, height))),
         .color = color,
-        .uvMin = mainAtlasUVRects[spriteName].minUV,
-        .uvMax = mainAtlasUVRects[spriteName].maxUV
+        .atlasUVs = simd_float4{uvRect.minUV.x, uvRect.minUV.y, uvRect.maxUV.x, uvRect.maxUV.y},
+        .sdfParams = simd_float4{0.0f, 0.0f, 0.0f, 0.0f},
+        .shapeType = ShapeTypeAtlas
     };
-    ++atlasInstanceCount;
+    ++entityInstanceCount;
 }
 
-
-// MARK: - Primitive Drawing Functions
-void Renderer::drawPrimitiveCircle(float x, float y, float radius,
-                             UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+// MARK: - UNIVERSAL MORPH DRAWING (Core Functions)
+void Renderer::drawMorph(float x, float y, float width, float height, float cornerRadius, simd_float4 color, float rotationRadians)
 {
-    drawPrimitiveCircle(x, y, radius, colorFromBytes(r, g, b, a));
-}
-void Renderer::drawPrimitiveCircle(float x, float y, float radius, simd_float4 color)
-{
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
-    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
-        .transform = simd_mul(makeTranslate(x, y), makeScale(radius * 2)),
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_entity, 1);
+    entityInstancesPtr[index] = (EntityInstanceData){
+        .transform = simd_mul(makeTranslate(x, y),
+                              simd_mul(makeRotationZ(rotationRadians),
+                                       makeScale(width, height))),
         .color = color,
-        .shapeType = ShapeTypeCircle,
-        .sdfParams = (simd_float4){radius, 0.5f, 0.0f, 0.0f} // hardcode edge softness to 0.5
+        .atlasUVs = simd_float4{0.0f, 0.0f, 0.0f, 0.0f},
+        .sdfParams = simd_float4{width / 2.0f, height / 2.0f, cornerRadius, 0.0f},
+        .shapeType = ShapeTypeRoundBoxSDF
     };
-    ++primitiveInstanceCount;
+    ++entityInstanceCount;
 }
 
-void Renderer::drawPrimitiveCircleLines(float x, float y, float radius, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
+void Renderer::drawMorphLines(float x, float y, float width, float height, float cornerRadius, float thickness, simd_float4 color, float rotationRadians)
 {
-    drawPrimitiveCircleLines(x, y, radius, thickness, colorFromBytes(r, g, b, a));
-}
-void Renderer::drawPrimitiveCircleLines(float x, float y, float radius, float thickness, simd_float4 color)
-{
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
-    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
-        .transform = simd_mul(makeTranslate(x, y), makeScale(radius * 2)),
+    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_entity, 1);
+    entityInstancesPtr[index] = (EntityInstanceData){
+        .transform = simd_mul(makeTranslate(x, y),
+                              simd_mul(makeRotationZ(rotationRadians),
+                                       makeScale(width, height))),
         .color = color,
-        .shapeType = ShapeTypeCircleLines,
-        .sdfParams = (simd_float4){radius, 0.5f, thickness / 2.0f, 0.0f}
+        .atlasUVs = simd_float4{0.0f, 0.0f, 0.0f, 0.0f},
+        .sdfParams = simd_float4{width / 2.0f, height / 2.0f, cornerRadius, thickness},
+        .shapeType = ShapeTypeRoundBoxSDFLines
     };
-    ++primitiveInstanceCount;
+    ++entityInstanceCount;
+}
+
+// MARK: - LEGACY PRIMITIVE WRAPPERS (Fully Backwards Compatible)
+void Renderer::drawEntityCircle(float x, float y, float radius, UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+    drawMorph(x, y, radius * 2.0f, radius * 2.0f, radius, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawEntityCircle(float x, float y, float radius, simd_float4 color) {
+    drawMorph(x, y, radius * 2.0f, radius * 2.0f, radius, color);
+}
+
+void Renderer::drawEntityCircleLines(float x, float y, float radius, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+    drawMorphLines(x, y, radius * 2.0f, radius * 2.0f, radius, thickness, colorFromBytes(r, g, b, a));
+}
+void Renderer::drawEntityCircleLines(float x, float y, float radius, float thickness, simd_float4 color) {
+    drawMorphLines(x, y, radius * 2.0f, radius * 2.0f, radius, thickness, color);
 }
     
-void Renderer::drawPrimitiveLine(float x1, float y1, float x2, float y2, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
-{
-    drawPrimitiveLine(x1, y1, x2, y2, thickness, colorFromBytes(r, g, b, a));
+void Renderer::drawEntityLine(float x1, float y1, float x2, float y2, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+    drawEntityLine(x1, y1, x2, y2, thickness, colorFromBytes(r, g, b, a));
 }
-void Renderer::drawPrimitiveLine(float x1, float y1, float x2, float y2, float thickness, simd_float4 color)
-{
+void Renderer::drawEntityLine(float x1, float y1, float x2, float y2, float thickness, simd_float4 color) {
     const float dx = x2 - x1;
     const float dy = y2 - y1;
-    const float length = sqrt(dx * dx + dy * dy);
-    const float angle = atan2(dy, dx);
-    
-    // Center between endpoints
+    const float length = std::sqrt(dx * dx + dy * dy);
+    const float angle = std::atan2(dy, dx);
     const float cx = (x1 + x2) * 0.5f;
     const float cy = (y1 + y2) * 0.5f;
     
-    // Build transform: scale -> rotate -> translate
-    // Multiple: translate * rotation * scale
-    const simd_float4x4 transform = simd_mul(makeTranslate(cx, cy), simd_mul(makeRotationZ(angle), makeScale(length, thickness)));
-    
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
-    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
-        .transform = transform,
-        .color = color,
-        .shapeType = ShapeTypeRect,
-        .sdfParams = (simd_float4){0.0f, 0.0f, 0.0f, 0.0f}
-    };
-    ++primitiveInstanceCount;
+    drawMorph(cx, cy, length, thickness, 0.0f, color, angle);
 }
     
-void Renderer::drawPrimitiveRect(float x, float y, float width, float height, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
-{
-    drawPrimitiveRect(x, y, width, height, colorFromBytes(r, g, b, a));
+void Renderer::drawEntityRect(float x, float y, float width, float height, UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+    drawMorph(x + (width / 2.0f), y + (height / 2.0f), width, height, 0.0f, colorFromBytes(r, g, b, a));
 }
-void Renderer::drawPrimitiveRect(float x, float y, float width, float height, simd_float4 color)
-{
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
-    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
-        .transform = simd_mul(makeTranslate(x + (width / 2.0f), y + (height / 2.0f)), makeScale(width, height)),
-        .color = color,
-        .shapeType = ShapeTypeRect,
-        .sdfParams = (simd_float4){0.0f, 0.0f, 0.0f, 0.0f}
-    };
-    ++primitiveInstanceCount;
+void Renderer::drawEntityRect(float x, float y, float width, float height, simd_float4 color) {
+    drawMorph(x + (width / 2.0f), y + (height / 2.0f), width, height, 0.0f, color);
 }
 
-void Renderer::drawPrimitiveRoundedRect(float x, float y, float width, float height, float cornerRadius, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
-{
-    drawPrimitiveRoundedRect(x, y, width, height, cornerRadius, colorFromBytes(r, g, b, a));
+void Renderer::drawEntityRoundedRect(float x, float y, float width, float height, float cornerRadius, UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+    drawMorph(x + (width / 2.0f), y + (height / 2.0f), width, height, cornerRadius, colorFromBytes(r, g, b, a));
 }
-void Renderer::drawPrimitiveRoundedRect(float x, float y, float width, float height, float cornerRadius, simd_float4 color)
-{
-    const float halfWidth = width / 2.0f;
-    const float halfHeight = height / 2.0f;
-    
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
-    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
-        .transform = simd_mul(makeTranslate(x + halfWidth, y + halfHeight), makeScale(width, height)),
-        .color = color,
-        .shapeType = ShapeTypeRoundedRect,
-        .sdfParams = (simd_float4){halfWidth, halfHeight, cornerRadius, 0.0f}
-    };
-    ++primitiveInstanceCount;
+void Renderer::drawEntityRoundedRect(float x, float y, float width, float height, float cornerRadius, simd_float4 color) {
+    drawMorph(x + (width / 2.0f), y + (height / 2.0f), width, height, cornerRadius, color);
 }
 
-void Renderer::drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a)
-{
-    drawPrimitiveRectLines(x, y, width, height, thickness, colorFromBytes(r, g, b, a));
+void Renderer::drawEntityRectLines(float x, float y, float width, float height, float thickness, UInt8 r, UInt8 g, UInt8 b, UInt8 a) {
+    drawMorphLines(x + (width / 2.0f), y + (height / 2.0f), width, height, 0.0f, thickness, colorFromBytes(r, g, b, a));
 }
-void Renderer::drawPrimitiveRectLines(float x, float y, float width, float height, float thickness, simd_float4 color)
-{
-    const float halfWidth = width / 2.0f;
-    const float halfHeight = height / 2.0f;
-    
-    const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_primitive, 1);
-    primitiveInstancesPtr[index] = (PrimitiveInstanceData){
-        .transform = simd_mul(makeTranslate(x + halfWidth, y + halfHeight), makeScale(width, height)),
-        .color = color,
-        .shapeType = ShapeTypeRectLines,
-        .sdfParams = (simd_float4){halfWidth, halfHeight, thickness, 0.0f}
-    };
-    ++primitiveInstanceCount;
+void Renderer::drawEntityRectLines(float x, float y, float width, float height, float thickness, simd_float4 color) {
+    drawMorphLines(x + (width / 2.0f), y + (height / 2.0f), width, height, 0.0f, thickness, color);
 }
 
+// MARK: - TEXT DRAWING FUNCTIONS
 void Renderer::drawText(const char* text,
                         float posX, float posY,
                         float fontSize,
