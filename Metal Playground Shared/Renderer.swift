@@ -411,7 +411,20 @@ class Renderer: NSObject, MTKViewDelegate {
             let renderPassDescriptor = view.currentRenderPassDescriptor
             if let renderPassDescriptor = renderPassDescriptor, let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) {
                 encoder.label = "Primary Render Encoder"
-                            
+                
+                // NON-COLLIDING UNIFORMS OUTSIDE THE LOOP to avoid redundnat command encodings
+                // Entity uses Vertex Buffer Index 2. Text never touches Index 2.
+                encoder.setVertexBytes(&entityUniforms,
+                                       length: MemoryLayout<EntityUniforms>.stride,
+                                       index: BufferIndex.uniforms.rawValue)
+                
+                // Text uses Fragment Buffer Index 0. Entity uses no fragment buffers.
+                // (Note: Fragment buffers are a separate binding table from Fragment textures/samplers!)
+                var textUniforms = TextFragmentUniforms(distanceRange: Float(fontAtlas.atlas.distanceRange))
+                encoder.setFragmentBytes(&textUniforms,
+                                         length: MemoryLayout<TextFragmentUniforms>.stride,
+                                         index: 0)
+                
                 for batchIndex in 0..<drawBatchCount {
                     let batch = self.drawBatchesPtr[batchIndex]
                     assert(batch.count > 0)
@@ -430,7 +443,6 @@ class Renderer: NSObject, MTKViewDelegate {
                                                 offset: entityTriInstanceBufferOffset + (MemoryLayout<EntityInstanceData>.stride * batch.startIndex),
                                                 index: BufferIndex.instances.rawValue)
                         
-                        encoder.setVertexBytes(&entityUniforms, length: MemoryLayout<EntityUniforms>.stride, index: BufferIndex.uniforms.rawValue)
                         encoder.setFragmentTexture(mainAtlasTexture, index: 0)
                         encoder.setFragmentSamplerState(atlasSamplerState, index: 0)
                         encoder.drawPrimitives(type: .triangleStrip,
@@ -446,8 +458,6 @@ class Renderer: NSObject, MTKViewDelegate {
                         var projectionMatrix = projectionMatrix
                         encoder.setVertexBytes(&projectionMatrix, length: MemoryLayout<float4x4>.stride, index: TextBufferIndex.projectionMatrix.rawValue)
                         
-                        var uniforms = TextFragmentUniforms(distanceRange: Float(fontAtlas.atlas.distanceRange))
-                        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<TextFragmentUniforms>.stride, index: 0)
                         encoder.setFragmentTexture(fontTexture, index: 0)
                         encoder.setFragmentSamplerState(textSamplerState, index: 0)
                         
