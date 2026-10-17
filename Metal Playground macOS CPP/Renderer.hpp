@@ -128,7 +128,7 @@ private:
     MTL::Buffer* entityTriInstanceBuffer = nullptr;
     int entityTriInstanceBufferOffset = 0;
     EntityInstanceData* entityInstancesPtr = nullptr;
-    const int entityMaxInstanceCount = 50000;
+    const int entityMaxInstanceCount = 100000;
     int entityInstanceCount = 0;
     
     const EntityVertex entityBaseSquareVertices[4] = {
@@ -190,7 +190,7 @@ private:
     void updateTriBufferStates();
     void buildEntityPipeline(MTL::PixelFormat pixelFormat);
     void buildTextPipeline(MTL::PixelFormat pixelFormat);
-    void loadAtlasTextureAndUV();
+    void loadAtlasTextureAndUV(const std::string& filename);
     void loadTextInfoAndTexture();
     
     // MARK: - Test functions

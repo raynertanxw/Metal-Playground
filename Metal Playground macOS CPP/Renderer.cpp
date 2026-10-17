@@ -155,7 +155,7 @@ Renderer::Renderer( MTL::Device* pDevice, MTK::View* pView )
     buildEntityPipeline(pView->colorPixelFormat());
     buildTextPipeline(pView->colorPixelFormat());
     
-    loadAtlasTextureAndUV();
+    loadAtlasTextureAndUV("main_atlas");
     loadTextInfoAndTexture();
     textTempVertexBuffer = new TextVertex[textMaxSingleDrawVertCount];
 }
@@ -391,43 +391,47 @@ static MTL::Texture* loadTexture(int width, int height, std::string imageUrl, MT
     return resultTexture;
 }
 
-void Renderer::loadAtlasTextureAndUV()
+void Renderer::loadAtlasTextureAndUV(const std::string& filename)
 {
     using namespace std;
     
-    int mainAtlasTWidth = 256;
-    int mainAtlasTHeight = 256;
+    string imageFileUrl = formatResourceURL(filename, "png");
+    string uvFileUrl = formatResourceURL(filename, "txt");
     
-    string imageFileUrl = formatResourceURL("main_atlas", "png");
-    string uvFileUrl = formatResourceURL("main_atlas", "txt");
+    ifstream file(uvFileUrl);
+    assert(file.is_open());
+    string line;
     
-    // Load the Texture data
-    mainAtlasTexture = loadTexture(mainAtlasTWidth, mainAtlasTHeight, imageFileUrl, device, true);
+    // 1. Read the first line (count and texture size)
+    getline(file, line);
+    std::istringstream headerIss(line);
+    int spriteCount = 0;
+    float textureSize = 0.0f;
     
-    { // Load the UV data
-        ifstream file(uvFileUrl);
-        assert(file.is_open());
-        string line;
-        
-        // Skip the first line (count line)
-        getline(file, line);
-        while (std::getline(file, line)) {
-            if (line.empty()) continue;
-            
-            std::istringstream iss(line);
-            std::string name;
-            float x, y, w, h;
-            
-            if (iss >> name >> x >> y >> w >> h) {
-                simd::float2 minUV = {x / mainAtlasTWidth, y / mainAtlasTHeight};
-                simd::float2 maxUV = {(x + w) / mainAtlasTWidth, (y + h) / mainAtlasTHeight};
-                
-                mainAtlasUVRects[name] = {minUV, maxUV};
-                __builtin_printf("name: %s, (%0.f, %0.f), w:%0.f, h%0.f\n", name.c_str(), x, y, w, h);
-            }
-        }
-        file.close();
+    if (!(headerIss >> spriteCount >> textureSize)) {
+        textureSize = 0.0f;
     }
+    
+    // 2. Load the Texture data using the parsed textureSize
+    mainAtlasTexture = loadTexture((int)textureSize, (int)textureSize, imageFileUrl, device, true);
+    
+    // 3. Load the UV data (lines already advanced past the first one)
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        
+        std::istringstream iss(line);
+        std::string name;
+        float x, y, w, h;
+        
+        if (iss >> name >> x >> y >> w >> h) {
+            simd::float2 minUV = {x / textureSize, y / textureSize};
+            simd::float2 maxUV = {(x + w) / textureSize, (y + h) / textureSize};
+            
+            mainAtlasUVRects[name] = {minUV, maxUV};
+            // __builtin_printf("name: %s, (%0.f, %0.f), w:%0.f, h%0.f\n", name.c_str(), x, y, w, h);
+        }
+    }
+    file.close();
 }
 
 void Renderer::loadTextInfoAndTexture()
@@ -466,7 +470,7 @@ void Renderer::loadTextInfoAndTexture()
 }
 
 void Renderer::testDrawEntities() {
-    const int circleCount = 100000;
+    const int circleCount = 70000;
     RNG rng = {U32(time * 1000000)};
     simd_float4 color = {};
     
