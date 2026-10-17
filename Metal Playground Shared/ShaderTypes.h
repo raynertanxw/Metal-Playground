@@ -30,12 +30,16 @@ typedef int64_t APIEnumBackingType;
 // Struct Payloads (Strict 32-bit for GPU memory alignment)
 typedef NS_ENUM(GPUEnumBackingType, ShapeType) {
     ShapeTypeNone = 0,
-    ShapeTypeRect = 1,
-    ShapeTypeRoundedRect = 2,
-    ShapeTypeRectLines = 3,
-    ShapeTypeCircle = 4,
-    ShapeTypeCircleLines = 5,
-    ShapeTypeAtlas = 6,
+    ShapeTypeRoundBoxSDF = 1,
+    ShapeTypeRoundBoxSDFLines = 2,
+    ShapeTypeAtlas = 3,
+    
+    // TODO: Remove once migrated over fully
+    ShapeTypeRect = 10,
+    ShapeTypeRoundedRect = 20,
+    ShapeTypeRectLines = 30,
+    ShapeTypeCircle = 40,
+    ShapeTypeCircleLines = 50,
 };
 
 // API Bindings (Standard Int for seamless Metal framework configuration)

@@ -536,36 +536,52 @@ class Renderer: NSObject, MTKViewDelegate {
     }
     
     // MARK: - PRIMITIVE DRAWING FUNCTIONS
+    func drawMorph(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
+            transform: float4x4(tx: x, ty: y) *
+            float4x4(rotationZ: rotationRadians) *
+            float4x4(scaleX: width, scaleY: height),
+            color: color,
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(width / 2.0, height / 2.0, cornerRadius, 0),
+            shapeType: ShapeType.roundBoxSDF.rawValue,
+            __padding: (0, 0, 0)
+        )
+        entityInstanceCount += 1
+    }
+    
+    func drawMorphLines(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, thickness: Float, color: SIMD4<Float>, rotationRadians: Float = 0) {
+        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
+        entityInstancesPtr[index] = EntityInstanceData(
+            transform: float4x4(tx: x, ty: y) *
+            float4x4(rotationZ: rotationRadians) *
+            float4x4(scaleX: width, scaleY: height),
+            color: color,
+            atlasUVs: .zero,
+            sdfParams: SIMD4<Float>(width / 2.0, height / 2.0, cornerRadius, thickness),
+            shapeType: ShapeType.roundBoxSDFLines.rawValue,
+            __padding: (0, 0, 0)
+        )
+        entityInstanceCount += 1
+    }
+    
+    // Circles
     func drawEntityCircle(x: Float, y: Float, radius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawEntityCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
+        drawMorph(x: x, y: y, width: radius * 2, height: radius * 2, cornerRadius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     func drawEntityCircle(x: Float, y: Float, radius: Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
-        entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
-            color: color,
-            atlasUVs: .zero,
-            sdfParams: SIMD4<Float>(radius, 0.5, 0, 0), // hardcode edge softness to 0.5
-            shapeType: ShapeType.circle.rawValue
-        )
-        entityInstanceCount += 1
+        drawMorph(x: x, y: y, width: radius * 2, height: radius * 2, cornerRadius: radius, color: color)
     }
     
-    func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawEntityCircle(x: x, y: y, radius: radius, color: colorFromBytes(r: r, g: g, b: b, a: a))
+    func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawMorphLines(x: x, y: y, width: radius * 2, height: radius * 2, cornerRadius: radius, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
-    func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness:Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
-        entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x, ty: y) * float4x4(scaleXY: (radius * 2)),
-            color: color,
-            atlasUVs: .zero,
-            sdfParams: SIMD4<Float>(radius, 0.5, thickness / 2.0, 0), // hardcode edge softness to 0.5
-            shapeType: ShapeType.circleLines.rawValue
-        )
-        entityInstanceCount += 1
+    func drawEntityCircleLines(x: Float, y: Float, radius: Float, thickness: Float, color: SIMD4<Float>) {
+        drawMorphLines(x: x, y: y, width: radius * 2, height: radius * 2, cornerRadius: radius, thickness: thickness, color: color)
     }
     
+    // Lines (Automatically calculates rotation and pipes to morph)
     func drawEntityLine(x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
         drawEntityLine(x1: x1, y1: y1, x2: x2, y2: y2, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
@@ -574,80 +590,35 @@ class Renderer: NSObject, MTKViewDelegate {
         let dy = y2 - y1
         let length = sqrt(dx * dx + dy * dy)
         let angle = atan2(dy, dx)
-        
-        // Center between endpoints
         let cx = (x1 + x2) * 0.5
         let cy = (y1 + y2) * 0.5
         
-        // Build transform: scale -> rotate -> translate
-        // Multiply: translate * rotation * scale
-        let transform = float4x4(tx: cx, ty: cy) *
-        float4x4(rotationZ: angle) *
-        float4x4(scaleX: length, scaleY: thickness)
-        
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
-        entityInstancesPtr[index] = EntityInstanceData(
-            transform: transform,
-            color: color,
-            atlasUVs: .zero,
-            sdfParams: SIMD4<Float>(0, 0, 0, 0),
-            shapeType: ShapeType.rect.rawValue
-        )
-        entityInstanceCount += 1
+        drawMorph(x: cx, y: cy, width: length, height: thickness, cornerRadius: 0, color: color, rotationRadians: angle)
     }
     
+    // Rects (Shifts X/Y anchor by half-width/height to maintain legacy top-left bounding logic)
     func drawEntityRect(x: Float, y: Float, width: Float, height: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawEntityRect(x: x, y: y, width: width, height: height, color: colorFromBytes(r: r, g: g, b: b, a: a))
+        drawMorph(x: x + (width / 2.0), y: y + (height / 2.0), width: width, height: height, cornerRadius: 0, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     func drawEntityRect(x: Float, y: Float, width: Float, height: Float, color: SIMD4<Float>) {
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
-        entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x + (width / 2.0), ty: y + (height / 2.0)) * float4x4(scaleX: width, scaleY: height),
-            color: color,
-            atlasUVs: .zero,
-            sdfParams: SIMD4<Float>(0, 0, 0, 0), // not used for rects
-            shapeType: ShapeType.rect.rawValue
-        )
-        entityInstanceCount += 1
+        drawMorph(x: x + (width / 2.0), y: y + (height / 2.0), width: width, height: height, cornerRadius: 0, color: color)
     }
     
-    func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float,
-                                  r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawEntityRoundedRect(x: x, y: y, width: width, height: height, cornerRadius: cornerRadius,
-                                 color: colorFromBytes(r: r, g: g, b: b, a: a))
+    func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
+        drawMorph(x: x + (width / 2.0), y: y + (height / 2.0), width: width, height: height, cornerRadius: cornerRadius, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     func drawEntityRoundedRect(x: Float, y: Float, width: Float, height: Float, cornerRadius: Float, color: SIMD4<Float>) {
-        let halfWidth = width / 2.0
-        let halfHeight = height / 2.0
-        
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
-        entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
-            color: color,
-            atlasUVs: .zero,
-            sdfParams: SIMD4<Float>(halfWidth, halfHeight, cornerRadius, 0),
-            shapeType: ShapeType.roundedRect.rawValue
-        )
-        entityInstanceCount += 1
+        drawMorph(x: x + (width / 2.0), y: y + (height / 2.0), width: width, height: height, cornerRadius: cornerRadius, color: color)
     }
     
     func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        drawEntityRectLines(x: x, y: y, width: width, height: height, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
+        drawMorphLines(x: x + (width / 2.0), y: y + (height / 2.0), width: width, height: height, cornerRadius: 0, thickness: thickness, color: colorFromBytes(r: r, g: g, b: b, a: a))
     }
     func drawEntityRectLines(x: Float, y: Float, width: Float, height: Float, thickness: Float, color: SIMD4<Float>) {
-        let halfWidth = width / 2.0
-        let halfHeight = height / 2.0
-        
-        let index = addToDrawBatchAndGetAdjustedIndex(type: .entity, increment: 1)
-        entityInstancesPtr[index] = EntityInstanceData(
-            transform: float4x4(tx: x + halfWidth, ty: y + halfHeight) * float4x4(scaleX: width, scaleY: height),
-            color: color,
-            atlasUVs: .zero,
-            sdfParams: SIMD4<Float>(halfWidth, halfHeight, thickness, 0),
-            shapeType: ShapeType.rectLines.rawValue
-        )
-        entityInstanceCount += 1
+        drawMorphLines(x: x + (width / 2.0), y: y + (height / 2.0), width: width, height: height, cornerRadius: 0, thickness: thickness, color: color)
     }
+    
+    
     // MARK: - Text Drawing Functions
     func drawText(text: String,
                   posX: Float, posY: Float,
