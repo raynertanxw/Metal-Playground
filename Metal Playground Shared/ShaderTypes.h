@@ -33,13 +33,6 @@ typedef NS_ENUM(GPUEnumBackingType, ShapeType) {
     ShapeTypeRoundBoxSDF = 1,
     ShapeTypeRoundBoxSDFLines = 2,
     ShapeTypeAtlas = 3,
-    
-    // TODO: Remove once migrated over fully
-    ShapeTypeRect = 10,
-    ShapeTypeRoundedRect = 20,
-    ShapeTypeRectLines = 30,
-    ShapeTypeCircle = 40,
-    ShapeTypeCircleLines = 50,
 };
 
 // API Bindings (Standard Int for seamless Metal framework configuration)

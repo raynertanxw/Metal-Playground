@@ -35,8 +35,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Assets.xcassets,
-				"Pre Entity Shaders/Shader_Atlas.metal",
-				"Pre Entity Shaders/Shader_Primitive.metal",
 				Resources/main_atlas.png,
 				Resources/main_atlas.txt,
 				Resources/roboto.json,
@@ -50,8 +48,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Assets.xcassets,
-				"Pre Entity Shaders/Shader_Atlas.metal",
-				"Pre Entity Shaders/Shader_Primitive.metal",
 				Renderer.swift,
 				RendererTester.swift,
 				Resources/main_atlas.png,
