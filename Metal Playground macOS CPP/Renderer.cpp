@@ -133,8 +133,7 @@ static inline simd_float4x4 pixelSpaceProjection(float screenWidth, float screen
 Renderer::Renderer( MTL::Device* pDevice, MTK::View* pView )
 {
     // TODO: Figure out how to assert the padding and stride of the shader structs too!
-    assert(sizeof(AtlasInstanceData) == 128);
-    assert(sizeof(PrimitiveInstanceData) == 128);
+    assert(sizeof(EntityInstanceData) == 128);
     assert(sizeof(TextVertex) == 32);
     
     inFlightSemaphore = dispatch_semaphore_create(Renderer::maxBuffersInFlight);
@@ -143,19 +142,17 @@ Renderer::Renderer( MTL::Device* pDevice, MTK::View* pView )
     // TODO: Check but I think nextStartIndexForTypePtr and strideSizesPtr are already created via definition.
     for (int i = 0; i < drawbatchtype_count; ++i) nextStartIndexForTypePtr[i] = 0;
     for (int i = 0; i < drawbatchtype_count; ++i) strideSizesPtr[i] = 0;
-    strideSizesPtr[drawbatchtype_atlas] = sizeof(AtlasInstanceData);
-    strideSizesPtr[drawbatchtype_primitive] = sizeof(PrimitiveInstanceData);
+    
+    strideSizesPtr[drawbatchtype_entity] = sizeof(EntityInstanceData);
     strideSizesPtr[drawbatchtype_text] = sizeof(TextVertex);
 
     device = pDevice->retain();
     commandQueue = device->newCommandQueue();
     
-    buildAtlasBuffers();
-    buildPrimitiveBuffers();
+    buildEntityBuffers();
     buildTextBuffers();
     
-    buildAtlasPipeline(pView->colorPixelFormat());
-    buildPrimitivePipeline(pView->colorPixelFormat());
+    buildEntityPipeline(pView->colorPixelFormat());
     buildTextPipeline(pView->colorPixelFormat());
     
     loadAtlasTextureAndUV();
@@ -170,13 +167,11 @@ Renderer::~Renderer()
     device->release();
     commandQueue->release();
     
-    atlasVertexBuffer->release();
-    atlasTriInstanceBuffer->release();
+    entityVertexBuffer->release();
+    entityTriInstanceBuffer->release();
     atlasSamplerState->release();
-    atlasPipelineState->release();
-    primitiveVertexBuffer->release();
-    primitiveTriInstanceBuffer->release();
-    primitivePipelineState->release();
+    entityPipelineState->release();
+    
     textTriVertexBuffer->release();
     textSamplerState->release();
     textPipelineState->release();
@@ -187,31 +182,19 @@ Renderer::~Renderer()
     textTempVertexBuffer = nullptr;
 }
 
-void Renderer::buildAtlasBuffers()
+void Renderer::buildEntityBuffers()
 {
     using namespace NS;
-    int verticeCount = sizeof(atlasSquareVertices) / sizeof(atlasSquareVertices[0]);
+    int verticeCount = sizeof(entityBaseSquareVertices) / sizeof(entityBaseSquareVertices[0]);
     assert(verticeCount == 4);
-    atlasVertexBuffer = device->newBuffer(&atlasSquareVertices, verticeCount * sizeof(AtlasVertex), MTL::ResourceStorageModeShared);
-    atlasVertexBuffer->setLabel(String::string("Atlas Square Vertex Buffer", StringEncoding::UTF8StringEncoding));
+    entityVertexBuffer = device->newBuffer(&entityBaseSquareVertices, verticeCount * sizeof(EntityVertex), MTL::ResourceStorageModeShared);
+    entityVertexBuffer->setLabel(String::string("Entity Square Vertex Buffer", StringEncoding::UTF8StringEncoding));
     
-    const int atlasTriInstanceBufferSize = sizeof(AtlasInstanceData) * atlasMaxInstanceCount * maxBuffersInFlight;
-    atlasTriInstanceBuffer = device->newBuffer(atlasTriInstanceBufferSize, MTL::ResourceStorageModeShared);
-    atlasTriInstanceBuffer->setLabel(String::string("Atlas Tri Instance Buffer", StringEncoding::UTF8StringEncoding));
+    const int entityTriInstanceBufferSize = sizeof(EntityInstanceData) * entityMaxInstanceCount * maxBuffersInFlight;
+    entityTriInstanceBuffer = device->newBuffer(entityTriInstanceBufferSize, MTL::ResourceStorageModeShared);
+    entityTriInstanceBuffer->setLabel(String::string("Entity Tri Instance Buffer", StringEncoding::UTF8StringEncoding));
 }
 
-void Renderer::buildPrimitiveBuffers()
-{
-    using namespace NS;
-    int verticeCount = sizeof(primitiveSquareVertices) / sizeof(primitiveSquareVertices[0]);
-    assert(verticeCount == 4);
-    primitiveVertexBuffer = device->newBuffer(&primitiveSquareVertices, verticeCount * sizeof(PrimitiveVertex), MTL::ResourceStorageModeShared);
-    primitiveVertexBuffer->setLabel(String::string("Primitive Square Vertex Buffer", StringEncoding::UTF8StringEncoding));
-    
-    const int primitiveTriInstanceBufferSize = sizeof(PrimitiveInstanceData) * primitiveMaxInstanceCount * maxBuffersInFlight;
-    primitiveTriInstanceBuffer = device->newBuffer(primitiveTriInstanceBufferSize, MTL::ResourceStorageModeShared);
-    primitiveTriInstanceBuffer->setLabel(String::string("Primitive Tri Instance Buffer", StringEncoding::UTF8StringEncoding));
-}
 
 void Renderer::buildTextBuffers()
 {
@@ -225,24 +208,21 @@ void Renderer::updateTriBufferStates()
 {
     triBufferIndex = (triBufferIndex + 1) % maxBuffersInFlight;
     
-    atlasTriInstanceBufferOffset = sizeof(AtlasInstanceData) * atlasMaxInstanceCount * triBufferIndex;
-    atlasInstancesPtr = (static_cast<AtlasInstanceData*>(atlasTriInstanceBuffer->contents())) + (atlasMaxInstanceCount * triBufferIndex);
-    
-    primitiveTriInstanceBufferOffset = sizeof(PrimitiveInstanceData) * primitiveMaxInstanceCount * triBufferIndex;
-    primitiveInstancesPtr = (static_cast<PrimitiveInstanceData*>(primitiveTriInstanceBuffer->contents())) + (primitiveMaxInstanceCount * triBufferIndex);
+    entityTriInstanceBufferOffset = sizeof(EntityInstanceData) * entityMaxInstanceCount * triBufferIndex;
+    entityInstancesPtr = (static_cast<EntityInstanceData*>(entityTriInstanceBuffer->contents())) + (entityMaxInstanceCount * triBufferIndex);
     
     textTriInstanceBufferOffset = sizeof(TextVertex) * textMaxVertexCount * triBufferIndex;
     textVertexBufferPtr = (static_cast<TextVertex*>(textTriVertexBuffer->contents())) + (textMaxVertexCount * triBufferIndex);
 }
 
-void Renderer::buildAtlasPipeline(MTL::PixelFormat pixelFormat)
+void Renderer::buildEntityPipeline(MTL::PixelFormat pixelFormat)
 {
     using namespace NS;
     using NS::StringEncoding::UTF8StringEncoding;
     MTL::Library* library = device->newDefaultLibrary();
     
-    MTL::Function* vertFunc = library->newFunction(String::string("vertex_atlas", UTF8StringEncoding));
-    MTL::Function* fragFunc = library->newFunction(String::string("fragment_atlas", UTF8StringEncoding));
+    MTL::Function* vertFunc = library->newFunction(String::string("vertex_entity", UTF8StringEncoding));
+    MTL::Function* fragFunc = library->newFunction(String::string("fragment_entity", UTF8StringEncoding));
     
     MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
     pipelineDesc->setVertexFunction(vertFunc);
@@ -258,28 +238,9 @@ void Renderer::buildAtlasPipeline(MTL::PixelFormat pixelFormat)
     colorAttachment->setSourceAlphaBlendFactor(MTL::BlendFactorSourceAlpha);
     colorAttachment->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
     
-    MTL::VertexDescriptor* vertexDesc = MTL::VertexDescriptor::alloc()->init();
-    // Position attribute
-    MTL::VertexAttributeDescriptor* pPositionAttribute = vertexDesc->attributes()->object(static_cast<NS::UInteger>(AtlasVertAttrPosition));
-    pPositionAttribute->setFormat(MTL::VertexFormatFloat2);
-    pPositionAttribute->setOffset(0);
-    pPositionAttribute->setBufferIndex(static_cast<NS::UInteger>(BufferIndexVertices));
-
-    // UV attribute
-    MTL::VertexAttributeDescriptor* pUVAttribute = vertexDesc->attributes()->object(static_cast<NS::UInteger>(AtlasVertAttrUV));
-    pUVAttribute->setFormat(MTL::VertexFormatFloat2);
-    pUVAttribute->setOffset(offsetof(AtlasVertex, uv));
-    pUVAttribute->setBufferIndex(static_cast<NS::UInteger>(BufferIndexVertices));
-
-    // Layouts
-    MTL::VertexBufferLayoutDescriptor* pLayout = vertexDesc->layouts()->object(0);
-    pLayout->setStride(sizeof(AtlasVertex));
-    pLayout->setStepFunction(MTL::VertexStepFunctionPerVertex);
-    pipelineDesc->setVertexDescriptor(vertexDesc);
-    
     NS::Error* err = nullptr;
-    atlasPipelineState = device->newRenderPipelineState(pipelineDesc, &err);
-    if (!atlasPipelineState) {
+    entityPipelineState = device->newRenderPipelineState(pipelineDesc, &err);
+    if (!entityPipelineState) {
         __builtin_printf("%s", err->localizedDescription()->utf8String());
         assert(false);
     }
@@ -291,45 +252,7 @@ void Renderer::buildAtlasPipeline(MTL::PixelFormat pixelFormat)
     atlasSamplerState = device->newSamplerState(sampleDesc);
     assert(atlasSamplerState);
     
-    
     sampleDesc->release();
-    vertexDesc->release();
-    pipelineDesc->release();
-    library->release();
-    fragFunc->release();
-    vertFunc->release();
-}
-
-void Renderer::buildPrimitivePipeline(MTL::PixelFormat pixelFormat)
-{
-    using namespace NS;
-    using NS::StringEncoding::UTF8StringEncoding;
-    MTL::Library* library = device->newDefaultLibrary();
-    
-    MTL::Function* vertFunc = library->newFunction(String::string("vertex_primitive", UTF8StringEncoding));
-    MTL::Function* fragFunc = library->newFunction(String::string("fragment_primitive", UTF8StringEncoding));
-    
-    MTL::RenderPipelineDescriptor* pipelineDesc = MTL::RenderPipelineDescriptor::alloc()->init();
-    pipelineDesc->setVertexFunction(vertFunc);
-    pipelineDesc->setFragmentFunction(fragFunc);
-
-    MTL::RenderPipelineColorAttachmentDescriptor* colorAttachment = pipelineDesc->colorAttachments()->object(0);
-    colorAttachment->setPixelFormat(pixelFormat);
-    colorAttachment->setBlendingEnabled(true);
-    colorAttachment->setRgbBlendOperation(MTL::BlendOperationAdd);
-    colorAttachment->setAlphaBlendOperation(MTL::BlendOperationAdd);
-    colorAttachment->setSourceRGBBlendFactor(MTL::BlendFactorSourceAlpha);
-    colorAttachment->setDestinationRGBBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
-    colorAttachment->setSourceAlphaBlendFactor(MTL::BlendFactorSourceAlpha);
-    colorAttachment->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
-    
-    NS::Error* err = nullptr;
-    primitivePipelineState = device->newRenderPipelineState(pipelineDesc, &err);
-    if (!primitivePipelineState) {
-        __builtin_printf("%s", err->localizedDescription()->utf8String());
-        assert(false);
-    }
-    
     pipelineDesc->release();
     library->release();
     fragFunc->release();

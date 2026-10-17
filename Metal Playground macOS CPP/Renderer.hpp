@@ -17,38 +17,26 @@
 #include <vector>
 #include <optional>
 
-struct AtlasVertex {
-    simd_float2 position;
-    simd_float2 uv;
-};
-
-struct AtlasInstanceData {
-    simd_float4x4 transform;
-    simd_float4 color;
-    simd_float2 uvMin;
-    simd_float2 uvMax;
-    uint32_t __padding[8];
-};
-
 struct AtlasUVRect {
     simd_float2 minUV; // bottom-left
     simd_float2 maxUV; // top-right
 };
 
-struct PrimitiveVertex {
+struct EntityVertex {
     simd_float2 position;
 };
 
-struct PrimitiveUniforms {
+struct EntityUniforms {
     simd_float4x4 projectionMatrix;
 };
 
-struct PrimitiveInstanceData {
+struct EntityInstanceData {
     simd_float4x4 transform;
     simd_float4 color;
-    int32_t shapeType;
+    simd_float4 atlasUVs;
     simd_float4 sdfParams;
-    uint32_t __padding[4];
+    uint32_t shapeType;
+    uint32_t __padding[3];
 };
 
 struct TextVertex {
@@ -114,14 +102,14 @@ public:
     ~Renderer();
     void draw( MTK::View* pView );
     void drawableSizeWillChange( MTK::View* pView, CGSize size );
-
+    
     
     // MARK: - For debugging
     CFTimeInterval lastRenderTimestamp = 0;
     int renderFrameCount = 0;
     double reportedFPS = 0;
     std::function<void(double)> onFramePresented = nullptr;
-
+    
 private:
     simd_float4x4 projectionMatrix = matrix_identity_float4x4;
     CGSize screenSize = {0.0f, 0.0f};
@@ -134,46 +122,28 @@ private:
     int triBufferIndex = 0;
     
     
-    // MARK: - ATLAS PIPELINE VARS
-    MTL::RenderPipelineState* atlasPipelineState = nullptr;
-    MTL::Buffer* atlasVertexBuffer = nullptr;
-    MTL::Buffer* atlasTriInstanceBuffer = nullptr;
-    int atlasTriInstanceBufferOffset = 0;
-    AtlasInstanceData* atlasInstancesPtr = nullptr;
-    const int atlasMaxInstanceCount = 150000;
-    int atlasInstanceCount = 0;
+    // MARK: - ENTITY PIPELINE VARs
+    MTL::RenderPipelineState* entityPipelineState = nullptr;
+    MTL::Buffer* entityVertexBuffer = nullptr;
+    MTL::Buffer* entityTriInstanceBuffer = nullptr;
+    int entityTriInstanceBufferOffset = 0;
+    EntityInstanceData* entityInstancesPtr = nullptr;
+    const int entityMaxInstanceCount = 50000;
+    int entityInstanceCount = 0;
     
-    const AtlasVertex atlasSquareVertices[4] = {
-        AtlasVertex{ .position={ -0.5f, -0.5f }, .uv={ 0.0f, 1.0f } },
-        AtlasVertex{ .position={  0.5f, -0.5f }, .uv={ 1.0f, 1.0f } },
-        AtlasVertex{ .position={ -0.5f,  0.5f }, .uv={ 0.0f, 0.0f } },
-        AtlasVertex{ .position={  0.5f,  0.5f }, .uv={ 1.0f, 0.0f } }
+    const EntityVertex entityBaseSquareVertices[4] = {
+        EntityVertex{.position={-0.5f, -0.5f}},
+        EntityVertex{.position={ 0.5f, -0.5f}},
+        EntityVertex{.position={-0.5f,  0.5f}},
+        EntityVertex{.position={ 0.5f,  0.5f}}
     };
-    // TODO: Use Arguement buffers to pass multiple texture atlasses?
+    
+    EntityUniforms entityUniforms = EntityUniforms{.projectionMatrix=matrix_identity_float4x4};
+    
+    // TODO: Use Argument buffers to pass multiple texture atlases?
     MTL::Texture* mainAtlasTexture = nullptr;
     std::map<std::string, AtlasUVRect> mainAtlasUVRects;
-    MTL::SamplerState* atlasSamplerState;
-    
-    
-    // MARK: - PRIMITIVE PIPELINE VARs
-    MTL::RenderPipelineState* primitivePipelineState = nullptr;
-    MTL::Buffer* primitiveVertexBuffer = nullptr;
-    MTL::Buffer* primitiveTriInstanceBuffer = nullptr;
-    int primitiveTriInstanceBufferOffset = 0;
-    PrimitiveInstanceData* primitiveInstancesPtr = nullptr;
-    const int primitiveMaxInstanceCount = 150000;
-    int primitiveInstanceCount = 0;
-    
-    const PrimitiveVertex primitiveSquareVertices[4] = {
-        PrimitiveVertex{.position={-0.5, -0.5}},
-        PrimitiveVertex{.position={0.5, -0.5}},
-        PrimitiveVertex{.position={-0.5, 0.5}},
-        PrimitiveVertex{.position={0.5, 0.5}}
-    };
-    
-    PrimitiveUniforms primitiveUniforms = PrimitiveUniforms {.projectionMatrix=matrix_identity_float4x4};
-    
-    
+    MTL::SamplerState* atlasSamplerState = nullptr;
     
     // MARK: - TEXT PIPELINE VARS
     MTL::Texture* fontTexture;
@@ -191,14 +161,12 @@ private:
     const int textMaxSingleDrawVertCount = 320 * 6;
     TextVertex* textTempVertexBuffer = nullptr;
     
-    
     // MARK: - Draw Command Batching
     enum DrawBatchType {
         drawbatchtype_none = 0,
-        drawbatchtype_atlas = 1,
-        drawbatchtype_primitive = 2,
-        drawbatchtype_text = 3,
-        drawbatchtype_count = 4,
+        drawbatchtype_entity = 1,
+        drawbatchtype_text = 2,
+        drawbatchtype_count = 3,
     };
     struct DrawBatch {
         DrawBatchType type;
@@ -217,12 +185,10 @@ private:
     // MARK: - GAME RELATED
     float time = 0.0f;
     
-    void buildAtlasBuffers();
-    void buildPrimitiveBuffers();
+    void buildEntityBuffers();
     void buildTextBuffers();
     void updateTriBufferStates();
-    void buildAtlasPipeline(MTL::PixelFormat pixelFormat);
-    void buildPrimitivePipeline(MTL::PixelFormat pixelFormat);
+    void buildEntityPipeline(MTL::PixelFormat pixelFormat);
     void buildTextPipeline(MTL::PixelFormat pixelFormat);
     void loadAtlasTextureAndUV();
     void loadTextInfoAndTexture();
