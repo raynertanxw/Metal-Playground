@@ -507,6 +507,17 @@ void Renderer::draw( MTK::View* pView )
         if (renderPassDesc && encoder) {
             encoder->setLabel(NS::String::string("Primary Render Encoder", NS::StringEncoding::UTF8StringEncoding));
             
+            // NON-COLLIDING UNIFORMS OUTSIDE THE LOOP to avoid redundnat command encodings
+            // Entity uses Vertex Buffer Index 2. Text never touches Index 2.
+            encoder->setVertexBytes(&entityUniforms, sizeof(entityUniforms), BufferIndexUniforms);
+            
+            // Text uses Fragment Buffer Index 0. Entity uses no fragment buffers.
+            // (Note: Fragment buffers are a separate binding table from Fragment textures/samplers!)
+            TextFragmentUniforms uniforms = (TextFragmentUniforms){
+                            .distanceRange = static_cast<float>(fontAtlas.atlas.distanceRange)
+                        };
+            encoder->setFragmentBytes(&uniforms, sizeof(TextFragmentUniforms), 0);
+            
             for (int iBatch = 0; iBatch < drawBatchCount; ++iBatch) {
                 const DrawBatch batch = drawBatchesArr[iBatch];
                 assert(batch.count > 0);
@@ -526,7 +537,6 @@ void Renderer::draw( MTK::View* pView )
                         
                         encoder->setVertexBuffer(entityTriInstanceBuffer, entityTriInstanceBufferOffset + (sizeof(EntityInstanceData) * batch.startIndex), BufferIndexInstances);
                         
-                        encoder->setVertexBytes(&entityUniforms, sizeof(entityUniforms), BufferIndexUniforms);
                         encoder->setFragmentTexture(mainAtlasTexture, 0);
                         encoder->setFragmentSamplerState(atlasSamplerState, 0);
                         encoder->drawPrimitives(MTL::PrimitiveTypeTriangleStrip, 0, 4, batch.count);
@@ -538,10 +548,6 @@ void Renderer::draw( MTK::View* pView )
                         simd_float4x4 bindableProjMatrix = projectionMatrix;
                         encoder->setVertexBytes(&bindableProjMatrix, sizeof(simd_float4x4), TextBufferIndexProjectionMatrix);
                         
-                        TextFragmentUniforms uniforms = (TextFragmentUniforms){
-                            .distanceRange = static_cast<float>(fontAtlas.atlas.distanceRange)
-                        };
-                        encoder->setFragmentBytes(&uniforms, sizeof(TextFragmentUniforms), 0);
                         encoder->setFragmentTexture(fontTexture, 0);
                         encoder->setFragmentSamplerState(textSamplerState, 0);
                         
