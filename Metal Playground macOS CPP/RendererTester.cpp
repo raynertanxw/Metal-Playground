@@ -9,7 +9,7 @@
 #include "ii_random.h"
 
 void testDrawEntities(Renderer *ren) {
-    const int circleCount = 70000;
+    const int circleCount = 125000;
     RNG rng = {U32(ren->readTime() * 1000000)};
     simd_float4 color = {};
     CGSize screenSize = ren->readScreenSize();

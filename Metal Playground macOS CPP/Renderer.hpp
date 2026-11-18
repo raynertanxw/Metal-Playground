@@ -175,7 +175,7 @@ private:
     MTL::Buffer* entityTriInstanceBuffer = nullptr;
     int entityTriInstanceBufferOffset = 0;
     EntityInstanceData* entityInstancesPtr = nullptr;
-    const int entityMaxInstanceCount = 100000;
+    const int entityMaxInstanceCount = 150000;
     int entityInstanceCount = 0;
     
     const EntityVertex entityBaseSquareVertices[4] = {

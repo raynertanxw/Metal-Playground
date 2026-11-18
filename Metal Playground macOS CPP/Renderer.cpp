@@ -107,6 +107,20 @@ static inline simd_float4x4 makeRotationZ(float angle)
     return m;
 }
 
+// NOTE: Use this if possible, most efficient!
+static inline simd_float4x4 makeCombi(float tx, float ty, float scaleX, float scaleY, float rotationZ)
+{
+    simd_float4x4 m = matrix_identity_float4x4;
+    float c = std::cos(rotationZ);
+    float s = std::sin(rotationZ);
+    
+    m.columns[0] = simd_float4{c * scaleX, s * scaleX, 0, 0};
+    m.columns[1] = simd_float4{-s * scaleY, c * scaleY, 0, 0};
+    m.columns[3] = simd_float4{tx, ty, 0, 1};
+    
+    return m;
+}
+
 static inline simd_float4x4 pixelSpaceProjection(float screenWidth, float screenHeight)
 {
     float scaleX = 2.0f / screenWidth;
@@ -603,10 +617,7 @@ void Renderer::drawSprite(const char* spriteName, float x, float y, float width,
     const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_entity, 1);
     AtlasUVRect uvRect = mainAtlasUVRects[spriteName];
     entityInstancesPtr[index] = (EntityInstanceData){
-        // Double-Projection Matrix Bug Fixed Here!
-        .transform = simd_mul(makeTranslate(x, y),
-                              simd_mul(makeRotationZ(rotationRadians),
-                                       makeScale(width, height))),
+        .transform = makeCombi(x, y, width, height, rotationRadians),
         .color = color,
         .atlasUVs = simd_float4{uvRect.minUV.x, uvRect.minUV.y, uvRect.maxUV.x, uvRect.maxUV.y},
         .sdfParams = simd_float4{0.0f, 0.0f, 0.0f, 0.0f},
@@ -620,9 +631,7 @@ void Renderer::drawMorph(float x, float y, float width, float height, float corn
 {
     const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_entity, 1);
     entityInstancesPtr[index] = (EntityInstanceData){
-        .transform = simd_mul(makeTranslate(x, y),
-                              simd_mul(makeRotationZ(rotationRadians),
-                                       makeScale(width, height))),
+        .transform = makeCombi(x, y, width, height, rotationRadians),
         .color = color,
         .atlasUVs = simd_float4{0.0f, 0.0f, 0.0f, 0.0f},
         .sdfParams = simd_float4{width / 2.0f, height / 2.0f, cornerRadius, 0.0f},
@@ -635,9 +644,7 @@ void Renderer::drawMorphLines(float x, float y, float width, float height, float
 {
     const int index = addToDrawBatchAndGetAdjustedIndex(drawbatchtype_entity, 1);
     entityInstancesPtr[index] = (EntityInstanceData){
-        .transform = simd_mul(makeTranslate(x, y),
-                              simd_mul(makeRotationZ(rotationRadians),
-                                       makeScale(width, height))),
+        .transform = makeCombi(x, y, width, height, rotationRadians),
         .color = color,
         .atlasUVs = simd_float4{0.0f, 0.0f, 0.0f, 0.0f},
         .sdfParams = simd_float4{width / 2.0f, height / 2.0f, cornerRadius, thickness},
